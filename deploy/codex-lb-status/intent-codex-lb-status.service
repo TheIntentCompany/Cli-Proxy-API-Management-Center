@@ -1,0 +1,47 @@
+[Unit]
+Description=Read-only codex-lb account status for the CLIProxyAPI panel (127.0.0.1:8335)
+After=network-online.target intent-codex-lb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# The database is owned by ubuntu (mode 0600), so the reader runs as that user. The
+# sandbox below mounts the data directory read-only, so this process cannot write it
+# even though the user owns it.
+User=ubuntu
+Group=ubuntu
+ExecStart=/usr/bin/python3 -I /opt/intent-codex-lb-status/codex_lb_status.py
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/var/lib/intent-lb/codex
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+RestrictAddressFamilies=AF_INET AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+UMask=0077
+MemoryMax=128M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target
