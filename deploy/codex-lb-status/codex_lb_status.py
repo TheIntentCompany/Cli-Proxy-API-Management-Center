@@ -25,6 +25,7 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 import json
+import os
 import sqlite3
 import sys
 import threading
@@ -41,9 +42,12 @@ ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}", "127.0.0.1", "localho
 CACHE_SECONDS = 15
 FAILURE_CACHE_SECONDS = 5
 BUSY_TIMEOUT_MS = 2000
-QUERY_DEADLINE_SECONDS = 3.0
-OPEN_RETRIES = 4
+# One refresh, including retries, busy waits and queries, must finish within this.
+# It stays well under the panel's 10-second api-call timeout.
+REFRESH_DEADLINE_SECONDS = 4.0
 OPEN_RETRY_SECONDS = 0.25
+# Absolute limit on receiving a request line and headers, however slowly they trickle.
+HEADER_DEADLINE_SECONDS = 5.0
 SOCKET_TIMEOUT_SECONDS = 5
 # Stays well below the unit's TasksMax so a flood cannot starve the service.
 MAX_CONNECTIONS = 8
@@ -122,12 +126,13 @@ def _kind(minutes):
 
 
 def _windows(conn, account_id):
+    rows = [conn.execute(LATEST_WINDOW_SQL, (slot, account_id)).fetchone() for slot in WINDOW_SLOTS]
+    rows = [row for row in rows if row is not None]
+    # Staleness is judged against the newest observation of any slot, including rows
+    # whose duration is unknown, so a fresh unknown row still ages out an old window.
+    newest = max((t for t in (_parse_time(row[3]) for row in rows) if t), default=None)
     found = []
-    for slot in WINDOW_SLOTS:
-        row = conn.execute(LATEST_WINDOW_SQL, (slot, account_id)).fetchone()
-        if row is None:
-            continue
-        used, reset_at, minutes, recorded_at = row
+    for used, reset_at, minutes, recorded_at in rows:
         try:
             minutes = int(minutes or 0)
         except (TypeError, ValueError):
@@ -147,7 +152,6 @@ def _windows(conn, account_id):
                 "recorded_at": _parse_time(recorded_at),
             }
         )
-    newest = max((w["recorded_at"] for w in found if w["recorded_at"]), default=None)
     for window in found:
         moment = window["recorded_at"]
         window["stale"] = bool(
@@ -157,31 +161,75 @@ def _windows(conn, account_id):
     return found
 
 
-def read_status():
-    """Read once, retrying briefly while codex-lb has no WAL file.
+# One read-only connection, used only under the cache lock. codex-lb closes its own
+# connections when idle, and SQLite then deletes store.db-wal and store.db-shm; on the
+# read-only mount this reader cannot recreate them, so a fresh connection fails until
+# codex-lb reconnects (measured absent 40% of the time). An open reader keeps codex-lb
+# from being the last connection, so the sidecars stay. Reads are short autocommit
+# statements, so no read transaction is held between refreshes and checkpoints proceed.
+_conn = None
+_conn_inode = None
 
-    codex-lb deletes store.db-wal when its last connection closes. On the read-only
-    mount this reader cannot recreate it, so opening fails with SQLITE_CANTOPEN until
-    codex-lb reconnects, usually within moments. Retrying keeps the mount read-only.
-    """
-    for attempt in range(OPEN_RETRIES + 1):
+
+def _close():
+    global _conn, _conn_inode
+    if _conn is not None:
         try:
-            return _read_once()
+            _conn.close()
+        except sqlite3.Error:
+            pass
+    _conn, _conn_inode = None, None
+
+
+def _connection(busy_ms):
+    global _conn, _conn_inode
+    inode = os.stat(DB_PATH).st_ino
+    if _conn is not None and inode != _conn_inode:
+        _close()  # The database file was replaced; read the new one.
+    if _conn is None:
+        conn = sqlite3.connect(
+            f"file:{DB_PATH}?mode=ro",
+            uri=True,
+            timeout=busy_ms / 1000,
+            isolation_level=None,
+            check_same_thread=False,  # Handler threads take turns under the cache lock.
+        )
+        try:
+            conn.execute("PRAGMA query_only = ON")
+        except sqlite3.Error:
+            conn.close()
+            raise
+        _conn, _conn_inode = conn, inode
+    _conn.execute(f"PRAGMA busy_timeout = {busy_ms}")
+    return _conn
+
+
+def read_status():
+    """Read within REFRESH_DEADLINE_SECONDS, reconnecting and retrying while the
+    database cannot be opened. Callers hold the cache lock."""
+    deadline = time.monotonic() + REFRESH_DEADLINE_SECONDS
+    attempt = 0
+    while True:
+        try:
+            return _read_once(deadline)
         except sqlite3.OperationalError as error:
-            if "unable to open" not in str(error) or attempt == OPEN_RETRIES:
+            attempt += 1
+            pause = OPEN_RETRY_SECONDS * attempt
+            if "unable to open" not in str(error) or time.monotonic() + pause >= deadline:
                 raise
-            time.sleep(OPEN_RETRY_SECONDS * (attempt + 1))
-    raise AssertionError("unreachable")
+            time.sleep(pause)
 
 
-def _read_once():
-    deadline = time.monotonic() + QUERY_DEADLINE_SECONDS
-    conn = sqlite3.connect(
-        f"file:{DB_PATH}?mode=ro", uri=True, timeout=BUSY_TIMEOUT_MS / 1000, isolation_level=None
-    )
+def _read_once(deadline):
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise sqlite3.OperationalError("refresh deadline passed")
+    busy_ms = max(1, int(min(BUSY_TIMEOUT_MS, remaining * 1000)))
     try:
-        conn.execute("PRAGMA query_only = ON")
-        conn.execute(f"PRAGMA busy_timeout = {BUSY_TIMEOUT_MS}")
+        conn = _connection(busy_ms)
+    except OSError as error:
+        raise sqlite3.OperationalError("unable to open database file") from error
+    try:
         # Abort any statement still running past the deadline (non-zero interrupts).
         conn.set_progress_handler(lambda: int(time.monotonic() > deadline), 1000)
         keys = []
@@ -222,8 +270,12 @@ def _read_once():
             "generated_at": _iso(datetime.now(timezone.utc)),
             "keys": keys,
         }
+    except sqlite3.Error:
+        _close()  # Start clean next time.
+        raise
     finally:
-        conn.close()
+        if _conn is not None:
+            _conn.set_progress_handler(None, 0)
 
 
 class _Cache:
@@ -242,16 +294,54 @@ class _Cache:
                 try:
                     self._body = json.dumps(read_status(), separators=(",", ":")).encode()
                     self._status = 200
-                    self._until = now + CACHE_SECONDS
+                    ttl = CACHE_SECONDS
                 except sqlite3.Error:
                     # No row data and no paths: the panel only needs to know it failed.
                     self._body = b'{"error":"database unavailable"}'
                     self._status = 503
-                    self._until = now + FAILURE_CACHE_SECONDS
+                    ttl = FAILURE_CACHE_SECONDS
+                # Counted from completion, so a slow refresh still protects its waiters.
+                self._until = time.monotonic() + ttl
             return self._status, self._body
 
 
 CACHE = _Cache()
+
+
+class _DeadlineReader:
+    """Line reader over the socket that enforces an absolute header deadline.
+
+    Python's buffered readline keeps receiving inside one line, so a client sending a
+    byte every few seconds could hold a connection for as long as its line lasts. This
+    reader receives itself and checks the deadline before every receive. Only request
+    lines and headers are read; GET and HEAD carry no body.
+    """
+
+    def __init__(self, sock, deadline):
+        self._sock = sock
+        self._deadline = deadline
+        self._buffer = b""
+
+    def readline(self, limit=-1):
+        while b"\n" not in self._buffer and (limit < 0 or len(self._buffer) < limit):
+            remaining = self._deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("request header deadline passed")
+            # Idle clients hit the inactivity limit; trickling ones hit the deadline.
+            self._sock.settimeout(min(remaining, SOCKET_TIMEOUT_SECONDS))
+            chunk = self._sock.recv(4096)
+            if not chunk:
+                break
+            self._buffer += chunk
+        newline = self._buffer.find(b"\n")
+        end = newline + 1 if newline >= 0 else len(self._buffer)
+        if limit >= 0:
+            end = min(end, limit)
+        line, self._buffer = self._buffer[:end], self._buffer[end:]
+        return line
+
+    def close(self):
+        self._buffer = b""
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -261,7 +351,16 @@ class Handler(BaseHTTPRequestHandler):
     timeout = SOCKET_TIMEOUT_SECONDS
     protocol_version = "HTTP/1.0"
 
+    def setup(self):
+        super().setup()
+        # Socket inactivity alone lets a client trickle header bytes forever.
+        self.rfile.close()
+        self.rfile = _DeadlineReader(self.connection, time.monotonic() + HEADER_DEADLINE_SECONDS)
+
     def _send(self, status, body, extra=None):
+        # The header deadline may have left a very short socket timeout; writing gets
+        # the normal inactivity limit again.
+        self.connection.settimeout(SOCKET_TIMEOUT_SECONDS)
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
