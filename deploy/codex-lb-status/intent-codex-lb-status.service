@@ -41,7 +41,9 @@ IPAddressDeny=any
 IPAddressAllow=localhost
 UMask=0077
 MemoryMax=128M
+# Python itself plus at most 8 request threads (MAX_CONNECTIONS in the script).
 TasksMax=32
+CPUQuota=25%
 
 [Install]
 WantedBy=multi-user.target

@@ -9,14 +9,15 @@ plan and latest usage windows?
 
 Constraints this file keeps:
 - It never writes. The database is opened with SQLite's read-only URI mode and
-  `PRAGMA query_only`, and the systemd unit mounts the data directory read-only.
+  `PRAGMA query_only`, statements run in autocommit, and each refresh has a hard
+  deadline. The systemd unit also mounts the data directory read-only.
 - It reads named columns only. Token columns of `accounts` and the key hash of
-  `api_keys` are never selected.
-- It listens on loopback only and refuses non-loopback peers.
-- Answers are cached for CACHE_SECONDS so panel polling cannot load the database.
-
-The panel reaches it through CLIProxyAPI's management `api-call` endpoint, which is
-itself protected by the management key.
+  `api_keys` are never selected, and `encryption.key` is never opened.
+- It answers loopback peers that address it as a loopback host, and refuses browser
+  requests (any Origin header), so a DNS-rebound page cannot read it. The panel reaches
+  it through CLIProxyAPI's management `api-call`, which needs the management key.
+- Load is bounded: answers (and failures) are cached, connections have deadlines, and
+  at most MAX_CONNECTIONS are served at once; extra connections are closed at once.
 """
 
 from __future__ import annotations
@@ -32,16 +33,31 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 DB_PATH = "/var/lib/intent-lb/codex/store.db"
-LISTEN = ("127.0.0.1", 8335)
+HOST, PORT = "127.0.0.1", 8335
 ROUTE = "/v1/accounts"
 KEY_NAME_PREFIX = "cliproxy-"
-CACHE_SECONDS = 15
-BUSY_TIMEOUT_MS = 2000
+ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}", "127.0.0.1", "localhost"}
 
-# Windows are named "primary" and "secondary" in codex-lb; their length decides
-# whether they are the 5-hour or the weekly limit. Length 0 means "not on this plan".
+CACHE_SECONDS = 15
+FAILURE_CACHE_SECONDS = 5
+BUSY_TIMEOUT_MS = 2000
+QUERY_DEADLINE_SECONDS = 3.0
+OPEN_RETRIES = 4
+OPEN_RETRY_SECONDS = 0.25
+SOCKET_TIMEOUT_SECONDS = 5
+# Stays well below the unit's TasksMax so a flood cannot starve the service.
+MAX_CONNECTIONS = 8
+
+# codex-lb names usage windows "primary", "secondary" and (free plans) "monthly";
+# legacy rows with a NULL window are primary, as in codex-lb's own repository code.
+# The window's length decides what it is; length 0 means "not on this plan".
+WINDOW_SLOTS = ("primary", "secondary", "monthly")
 FIVE_HOUR_MAX_MINUTES = 5 * 60
 WEEKLY_MAX_MINUTES = 7 * 24 * 60
+MONTHLY_MAX_MINUTES = 31 * 24 * 60
+# A window last recorded this long before the account's newest window is left over
+# from an earlier plan or schedule; it is reported as stale rather than current.
+STALE_AFTER_SECONDS = 24 * 60 * 60
 
 KEYS_SQL = """
 SELECT id, name, key_prefix, is_active, account_assignment_scope_enabled
@@ -58,18 +74,19 @@ WHERE ka.api_key_id = ?
 ORDER BY a.email
 """
 
-# Served by idx_usage_window_raw_account_time_covering: one index probe per window.
+# Matches idx_usage_window_account_latest (coalesce(window,'primary'), account_id,
+# recorded_at DESC, id DESC): one index probe per window.
 LATEST_WINDOW_SQL = """
 SELECT used_percent, reset_at, window_minutes, recorded_at
 FROM usage_history
-WHERE account_id = ? AND "window" = ?
-ORDER BY recorded_at DESC
+WHERE coalesce("window", 'primary') = ? AND account_id = ?
+ORDER BY recorded_at DESC, id DESC
 LIMIT 1
 """
 
 
-def _iso(value):
-    """codex-lb stores naive UTC timestamps as text; return ISO 8601 with Z, or None."""
+def _parse_time(value):
+    """codex-lb stores naive UTC timestamps as text."""
     if not value:
         return None
     try:
@@ -78,7 +95,11 @@ def _iso(value):
         return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return parsed.astimezone(timezone.utc)
+
+
+def _iso(moment):
+    return moment.isoformat().replace("+00:00", "Z") if moment else None
 
 
 def _epoch(value):
@@ -90,41 +111,79 @@ def _epoch(value):
     return int(number) if number > 0 else None
 
 
-def _window(row):
-    if row is None:
-        return None
-    used, reset_at, minutes, recorded_at = row
-    try:
-        minutes = int(minutes or 0)
-    except (TypeError, ValueError):
-        minutes = 0
-    if minutes <= 0:
-        return None
+def _kind(minutes):
     if minutes <= FIVE_HOUR_MAX_MINUTES:
-        kind = "five_hour"
-    elif minutes <= WEEKLY_MAX_MINUTES:
-        kind = "weekly"
-    else:
-        kind = "other"
-    try:
-        used = max(0.0, min(100.0, float(used)))
-    except (TypeError, ValueError):
-        used = None
-    return {
-        "kind": kind,
-        "used_percent": used,
-        "reset_at": _epoch(reset_at),
-        "window_minutes": minutes,
-        "recorded_at": _iso(recorded_at),
-    }
+        return "five_hour"
+    if minutes <= WEEKLY_MAX_MINUTES:
+        return "weekly"
+    if minutes <= MONTHLY_MAX_MINUTES:
+        return "monthly"
+    return "other"
+
+
+def _windows(conn, account_id):
+    found = []
+    for slot in WINDOW_SLOTS:
+        row = conn.execute(LATEST_WINDOW_SQL, (slot, account_id)).fetchone()
+        if row is None:
+            continue
+        used, reset_at, minutes, recorded_at = row
+        try:
+            minutes = int(minutes or 0)
+        except (TypeError, ValueError):
+            minutes = 0
+        if minutes <= 0:
+            continue
+        try:
+            used = max(0.0, min(100.0, float(used)))
+        except (TypeError, ValueError):
+            used = None
+        found.append(
+            {
+                "kind": _kind(minutes),
+                "used_percent": used,
+                "reset_at": _epoch(reset_at),
+                "window_minutes": minutes,
+                "recorded_at": _parse_time(recorded_at),
+            }
+        )
+    newest = max((w["recorded_at"] for w in found if w["recorded_at"]), default=None)
+    for window in found:
+        moment = window["recorded_at"]
+        window["stale"] = bool(
+            newest and (moment is None or (newest - moment).total_seconds() > STALE_AFTER_SECONDS)
+        )
+        window["recorded_at"] = _iso(moment)
+    return found
 
 
 def read_status():
-    uri = f"file:{DB_PATH}?mode=ro"
-    conn = sqlite3.connect(uri, uri=True, timeout=BUSY_TIMEOUT_MS / 1000, isolation_level=None)
+    """Read once, retrying briefly while codex-lb has no WAL file.
+
+    codex-lb deletes store.db-wal when its last connection closes. On the read-only
+    mount this reader cannot recreate it, so opening fails with SQLITE_CANTOPEN until
+    codex-lb reconnects, usually within moments. Retrying keeps the mount read-only.
+    """
+    for attempt in range(OPEN_RETRIES + 1):
+        try:
+            return _read_once()
+        except sqlite3.OperationalError as error:
+            if "unable to open" not in str(error) or attempt == OPEN_RETRIES:
+                raise
+            time.sleep(OPEN_RETRY_SECONDS * (attempt + 1))
+    raise AssertionError("unreachable")
+
+
+def _read_once():
+    deadline = time.monotonic() + QUERY_DEADLINE_SECONDS
+    conn = sqlite3.connect(
+        f"file:{DB_PATH}?mode=ro", uri=True, timeout=BUSY_TIMEOUT_MS / 1000, isolation_level=None
+    )
     try:
         conn.execute("PRAGMA query_only = ON")
         conn.execute(f"PRAGMA busy_timeout = {BUSY_TIMEOUT_MS}")
+        # Abort any statement still running past the deadline (non-zero interrupts).
+        conn.set_progress_handler(lambda: int(time.monotonic() > deadline), 1000)
         keys = []
         for key_id, name, prefix, active, scoped in conn.execute(
             KEYS_SQL, (len(KEY_NAME_PREFIX), KEY_NAME_PREFIX)
@@ -136,14 +195,6 @@ def read_status():
                 for account_id, email, alias, plan, status, reason, reset_at in conn.execute(
                     ACCOUNTS_SQL, (key_id,)
                 ).fetchall():
-                    windows = [
-                        w
-                        for w in (
-                            _window(conn.execute(LATEST_WINDOW_SQL, (account_id, slot)).fetchone())
-                            for slot in ("primary", "secondary")
-                        )
-                        if w is not None
-                    ]
                     accounts.append(
                         {
                             # A stable handle for the panel; the raw codex-lb id is not exposed.
@@ -154,7 +205,7 @@ def read_status():
                             "status": status or None,
                             "status_reason": reason or None,
                             "blocked_until": _epoch(reset_at),
-                            "windows": windows,
+                            "windows": _windows(conn, account_id),
                         }
                     )
             keys.append(
@@ -168,7 +219,7 @@ def read_status():
             )
         return {
             "source": "codex-lb",
-            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "generated_at": _iso(datetime.now(timezone.utc)),
             "keys": keys,
         }
     finally:
@@ -176,18 +227,28 @@ def read_status():
 
 
 class _Cache:
+    """One refresh at a time; successes live CACHE_SECONDS, failures FAILURE_CACHE_SECONDS."""
+
     def __init__(self):
         self._lock = threading.Lock()
-        self._body = None
-        self._at = 0.0
+        self._status = 0
+        self._body = b""
+        self._until = 0.0
 
     def get(self):
         with self._lock:
             now = time.monotonic()
-            if self._body is None or now - self._at >= CACHE_SECONDS:
-                self._body = json.dumps(read_status(), separators=(",", ":")).encode()
-                self._at = now
-            return self._body
+            if now >= self._until:
+                try:
+                    self._body = json.dumps(read_status(), separators=(",", ":")).encode()
+                    self._status = 200
+                    self._until = now + CACHE_SECONDS
+                except sqlite3.Error:
+                    # No row data and no paths: the panel only needs to know it failed.
+                    self._body = b'{"error":"database unavailable"}'
+                    self._status = 503
+                    self._until = now + FAILURE_CACHE_SECONDS
+            return self._status, self._body
 
 
 CACHE = _Cache()
@@ -196,49 +257,82 @@ CACHE = _Cache()
 class Handler(BaseHTTPRequestHandler):
     server_version = "codex-lb-status"
     sys_version = ""
+    # Applied to the socket by StreamRequestHandler: slow or idle clients are dropped.
+    timeout = SOCKET_TIMEOUT_SECONDS
+    protocol_version = "HTTP/1.0"
 
-    def _send(self, status, body, content_type="application/json"):
+    def _send(self, status, body, extra=None):
         self.send_response(status)
-        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")
+        for name, value in (extra or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
 
-    def _peer_is_loopback(self):
+    def _allowed(self):
         try:
-            return ipaddress.ip_address(self.client_address[0]).is_loopback
+            if not ipaddress.ip_address(self.client_address[0]).is_loopback:
+                return False
         except ValueError:
             return False
+        host = (self.headers.get("Host") or "").strip().lower()
+        # Browsers always send Origin on cross-origin fetches; the api-call proxy never does.
+        return host in ALLOWED_HOSTS and self.headers.get("Origin") is None
 
     def do_GET(self):
-        if not self._peer_is_loopback():
+        if not self._allowed():
             self._send(403, b'{"error":"forbidden"}')
             return
         if self.path.split("?", 1)[0] != ROUTE:
             self._send(404, b'{"error":"not found"}')
             return
-        try:
-            body = CACHE.get()
-        except sqlite3.Error as error:
-            # The message names the SQLite condition only; it carries no row data.
-            self._send(503, json.dumps({"error": "database unavailable", "detail": str(error)}).encode())
-            return
-        self._send(200, body)
+        status, body = CACHE.get()
+        extra = {"Retry-After": str(FAILURE_CACHE_SECONDS)} if status == 503 else None
+        self._send(status, body, extra)
 
     def do_HEAD(self):
         self.do_GET()
 
     def log_message(self, fmt, *args):
-        # One line per request without query strings or headers.
-        sys.stderr.write("%s %s\n" % (self.command, self.path.split("?", 1)[0]))
+        # No per-request logging: a loopback flood must not become a journal flood.
+        return
+
+
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+    request_queue_size = 16
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
+
+    def process_request(self, request, client_address):
+        if not self._slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self._slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
+
+    def handle_error(self, request, client_address):
+        # One line, no traceback: paths and library internals stay out of the journal.
+        sys.stderr.write("request failed: %s\n" % sys.exc_info()[0].__name__)
 
 
 def main():
-    server = ThreadingHTTPServer(LISTEN, Handler)
-    server.daemon_threads = True
-    server.serve_forever()
+    Server((HOST, PORT), Handler).serve_forever()
 
 
 if __name__ == "__main__":
