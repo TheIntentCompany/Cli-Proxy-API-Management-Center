@@ -180,8 +180,6 @@
     "not_reported": "chưa báo",
     "near_limit": "gần chạm giới hạn",
     "resets": "đặt lại {{when}}",
-    "read_at": "đọc {{when}}",
-    "seen_at": "ghi nhận {{when}}",
     "served_title": "Yêu cầu theo tài khoản",
     "served_note": "{{range}}. Màu đỏ là yêu cầu thất bại.",
     "served_aria": "{{name}}: {{success}} thành công, {{failed}} thất bại",
@@ -213,6 +211,8 @@
     "now": "bây giờ"
   },
   "limits": {
+    "renews": "Gia hạn {{date}}",
+    "reset_credits_failed": "Không đọc được hạn của tín dụng đặt lại",
     "timeline": "Dòng thời gian đặt lại",
     "col_account": "Tài khoản",
     "col_five_hour": "5 giờ, đã dùng",

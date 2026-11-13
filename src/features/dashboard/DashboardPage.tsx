@@ -185,13 +185,6 @@ export function DashboardPage() {
     if (reading.resetAtMs) {
       parts.push(t('insights.resets', { when: formatRelative(reading.resetAtMs, now, locale) }));
     }
-    if (reading.observedAtMs) {
-      parts.push(
-        t(reading.source === 'usage' ? 'insights.read_at' : 'insights.seen_at', {
-          when: formatRelative(reading.observedAtMs, now, locale),
-        })
-      );
-    }
     return parts.join(' · ');
   };
 

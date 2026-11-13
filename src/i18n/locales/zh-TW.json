@@ -180,8 +180,6 @@
     "not_reported": "未回報",
     "near_limit": "接近上限",
     "resets": "{{when}}重置",
-    "read_at": "{{when}}讀取",
-    "seen_at": "{{when}}觀測",
     "served_title": "各帳號請求數",
     "served_note": "{{range}}。紅色為失敗請求。",
     "served_aria": "{{name}}：成功 {{success}}，失敗 {{failed}}",
@@ -213,6 +211,8 @@
     "now": "現在"
   },
   "limits": {
+    "renews": "{{date}} 續約",
+    "reset_credits_failed": "無法讀取重置額度的到期時間",
     "timeline": "重置時間軸",
     "col_account": "帳號",
     "col_five_hour": "5 小時已用",

@@ -180,8 +180,6 @@
     "not_reported": "not reported",
     "near_limit": "near limit",
     "resets": "resets {{when}}",
-    "read_at": "read {{when}}",
-    "seen_at": "seen {{when}}",
     "served_title": "Requests by account",
     "served_note": "{{range}}. Red is failed requests.",
     "served_aria": "{{name}}: {{success}} succeeded, {{failed}} failed",
@@ -213,6 +211,8 @@
     "now": "now"
   },
   "limits": {
+    "renews": "Renews {{date}}",
+    "reset_credits_failed": "Couldn't read reset credit expiry",
     "timeline": "Reset timeline",
     "col_account": "Account",
     "col_five_hour": "5-hour, used",

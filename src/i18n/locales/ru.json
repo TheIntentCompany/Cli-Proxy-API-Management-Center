@@ -179,8 +179,6 @@
     "not_reported": "нет данных",
     "near_limit": "близко к лимиту",
     "resets": "сброс {{when}}",
-    "read_at": "прочитано {{when}}",
-    "seen_at": "получено {{when}}",
     "served_title": "Запросы по аккаунтам",
     "served_note": "{{range}}. Красным отмечены ошибки.",
     "served_aria": "{{name}}: успешно {{success}}, ошибок {{failed}}",
@@ -212,6 +210,8 @@
     "now": "сейчас"
   },
   "limits": {
+    "renews": "Продление {{date}}",
+    "reset_credits_failed": "Не удалось прочитать срок действия кредитов сброса",
     "timeline": "График сбросов",
     "col_account": "Аккаунт",
     "col_five_hour": "5 часов, использовано",

@@ -180,8 +180,6 @@
     "not_reported": "보고 없음",
     "near_limit": "한도 임박",
     "resets": "{{when}} 초기화",
-    "read_at": "{{when}} 읽음",
-    "seen_at": "{{when}} 관측",
     "served_title": "계정별 요청",
     "served_note": "{{range}}. 빨간색은 실패한 요청입니다.",
     "served_aria": "{{name}}: 성공 {{success}}, 실패 {{failed}}",
@@ -213,6 +211,8 @@
     "now": "지금"
   },
   "limits": {
+    "renews": "{{date}} 갱신",
+    "reset_credits_failed": "초기화 크레딧 만료일을 읽지 못했습니다",
     "timeline": "초기화 타임라인",
     "col_account": "계정",
     "col_five_hour": "5시간 사용률",

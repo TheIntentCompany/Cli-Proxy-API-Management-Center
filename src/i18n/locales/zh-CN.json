@@ -180,8 +180,6 @@
     "not_reported": "未上报",
     "near_limit": "接近上限",
     "resets": "{{when}}重置",
-    "read_at": "{{when}}读取",
-    "seen_at": "{{when}}观测",
     "served_title": "各账号请求数",
     "served_note": "{{range}}。红色为失败请求。",
     "served_aria": "{{name}}：成功 {{success}}，失败 {{failed}}",
@@ -213,6 +211,8 @@
     "now": "现在"
   },
   "limits": {
+    "renews": "{{date}} 续期",
+    "reset_credits_failed": "无法读取重置额度的到期时间",
     "timeline": "重置时间线",
     "col_account": "账号",
     "col_five_hour": "5 小时已用",

@@ -14,7 +14,7 @@ import { LimitMeter } from '@/components/ui/LimitMeter';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { useNow } from '@/hooks/useNow';
 import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
-import { parseIsoToMs, resolveQuotaErrorMessage } from '@/utils/quota';
+import { parseIsoToMs, resolveQuotaErrorMessage, resolveResetMs } from '@/utils/quota';
 import { getQuotaDisplayName } from '@/utils/quota/identity';
 import { formatRelative, formatShortDateTime } from '@/utils/relativeTime';
 import { limitsFromHeaders, type LimitReading } from '@/features/dashboard/insights';
@@ -185,6 +185,14 @@ export function QuotaRow({
   }
 
   if (family === 'codex' && status === 'success') {
+    const renewsAtMs = resolveResetMs([codexQuota?.subscriptionActiveUntil ?? null]);
+    if (renewsAtMs !== null) {
+      facts.push(
+        <span key="renews">
+          {t('limits.renews', { date: formatShortDateTime(renewsAtMs, locale) })}
+        </span>
+      );
+    }
     if (codexQuota?.creditsUnlimited) {
       facts.push(<span key="credits">{t('limits.credits_unlimited')}</span>);
     } else if (codexQuota?.creditBalance) {
@@ -194,8 +202,27 @@ export function QuotaRow({
     }
     const available = codexQuota?.rateLimitResetCreditsAvailableCount;
     if (typeof available === 'number') {
+      const firstExpiry = (codexQuota?.rateLimitResetCredits ?? [])
+        .map((credit) => parseIsoToMs(credit.expiresAt))
+        .filter((ms): ms is number => ms !== null)
+        .sort((a, b) => a - b)[0];
       facts.push(
-        <span key="reset-credits">{t('limits.reset_credits', { count: available })}</span>
+        <span key="reset-credits">
+          {t('limits.reset_credits', { count: available })}
+          {firstExpiry !== undefined && (
+            <span className={styles.muted}>
+              {' '}
+              {t('limits.next_expiry', { when: formatShortDateTime(firstExpiry, locale) })}
+            </span>
+          )}
+        </span>
+      );
+    }
+    if (codexQuota?.rateLimitResetCreditsError) {
+      facts.push(
+        <span key="reset-credits-error" className={styles.error}>
+          {t('limits.reset_credits_failed')}
+        </span>
       );
     }
     if (creditOverage.visible) {

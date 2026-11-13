@@ -180,8 +180,6 @@
     "not_reported": "bildirilmedi",
     "near_limit": "limite yakın",
     "resets": "{{when}} sıfırlanır",
-    "read_at": "{{when}} okundu",
-    "seen_at": "{{when}} görüldü",
     "served_title": "Hesaplara göre istekler",
     "served_note": "{{range}}. Kırmızı başarısız isteklerdir.",
     "served_aria": "{{name}}: {{success}} başarılı, {{failed}} başarısız",
@@ -213,6 +211,8 @@
     "now": "şimdi"
   },
   "limits": {
+    "renews": "{{date}} yenilenir",
+    "reset_credits_failed": "Sıfırlama kredisi bitiş tarihi okunamadı",
     "timeline": "Sıfırlama zaman çizelgesi",
     "col_account": "Hesap",
     "col_five_hour": "5 saat, kullanılan",
