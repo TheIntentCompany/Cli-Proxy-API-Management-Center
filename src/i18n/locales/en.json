@@ -137,6 +137,8 @@
     "more": "Routing, logs, config, plugins"
   },
   "insights": {
+    "via_codex_lb": "{{accounts}} via codex-lb",
+    "api_key": "API key {{key}}",
     "title": "Gateway usage",
     "source": "from CLIProxyAPI {{version}}",
     "updated": "Updated {{time}}",
@@ -244,6 +246,22 @@
     "credits_unlimited": "Credits: unlimited",
     "reset_credits": "Reset credits: {{count}}",
     "overage": "Credits after limit: {{state}}"
+  },
+  "codex_lb": {
+    "monthly": "Monthly",
+    "via": "Codex · via codex-lb",
+    "section_title": "Reached through codex-lb",
+    "section_note": "Codex accounts this gateway uses through codex-lb API keys. codex-lb holds them, so sign-in and actions for these live in codex-lb; this view is read-only.",
+    "status_active": "Active",
+    "status_rate_limited": "Rate limited",
+    "status_quota_exceeded": "Out of quota",
+    "status_paused": "Paused",
+    "status_deactivated": "Deactivated",
+    "status_blocked": "Blocked",
+    "status_until": "{{status}} until {{date}}",
+    "key": "key {{name}}",
+    "key_inactive": "codex-lb key is inactive",
+    "updated": "updated {{when}}"
   },
   "dashboard": {
     "hero_verdict_good": "All systems steady",

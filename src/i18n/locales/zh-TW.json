@@ -137,6 +137,8 @@
     "more": "路由、日誌、設定、外掛"
   },
   "insights": {
+    "via_codex_lb": "{{accounts}}（經由 codex-lb）",
+    "api_key": "API 金鑰 {{key}}",
     "title": "閘道用量",
     "source": "來自 CLIProxyAPI {{version}}",
     "updated": "更新於 {{time}}",
@@ -244,6 +246,22 @@
     "credits_unlimited": "額度：無限",
     "reset_credits": "重置額度：{{count}}",
     "overage": "超限後使用額度：{{state}}"
+  },
+  "codex_lb": {
+    "monthly": "每月",
+    "via": "Codex · 經由 codex-lb",
+    "section_title": "經由 codex-lb 接入",
+    "section_note": "本閘道透過 codex-lb API 金鑰使用的 Codex 帳號。帳號由 codex-lb 持有，登入與操作需在 codex-lb 中進行；此處唯讀。",
+    "status_active": "正常",
+    "status_rate_limited": "已限流",
+    "status_quota_exceeded": "額度用盡",
+    "status_paused": "已暫停",
+    "status_deactivated": "已停用",
+    "status_blocked": "已封鎖",
+    "status_until": "{{status}}，直到 {{date}}",
+    "key": "金鑰 {{name}}",
+    "key_inactive": "codex-lb 金鑰未啟用",
+    "updated": "{{when}}更新"
   },
   "dashboard": {
     "hero_verdict_good": "運行平穩",

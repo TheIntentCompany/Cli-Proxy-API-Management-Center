@@ -17,6 +17,7 @@ import { IconSearch, IconX } from '@/components/ui/icons';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useCodexLbStatus } from '@/hooks/useCodexLbStatus';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
@@ -26,6 +27,8 @@ import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaCard } from './components/QuotaCard';
 import { QuotaRow } from './components/QuotaRow';
+import { CodexLbRow } from './components/CodexLbRow';
+import { flattenCodexLbAccounts } from '@/services/api/codexLb';
 import { QuotaTimeline } from './components/QuotaTimeline';
 import {
   CARD_ENTRANCE_BUDGET_MS,
@@ -178,7 +181,33 @@ export function QuotaPage() {
   const sortNow = sortMode === 'default' ? 0 : tick;
 
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
-  const tabCounts = useMemo(() => buildTabCounts(entries), [entries]);
+  // Codex accounts reached through codex-lb are not credentials here, but they are
+  // accounts this gateway serves, so they count under Codex and appear in its list.
+  const { status: codexLbStatus } = useCodexLbStatus();
+  const codexLbAccounts = useMemo(
+    () => flattenCodexLbAccounts(codexLbStatus?.keys),
+    [codexLbStatus]
+  );
+  const tabCounts = useMemo(() => {
+    const counts = buildTabCounts(entries);
+    if (codexLbAccounts.length === 0) return counts;
+    return {
+      ...counts,
+      all: (counts.all ?? 0) + codexLbAccounts.length,
+      codex: (counts.codex ?? 0) + codexLbAccounts.length,
+    };
+  }, [entries, codexLbAccounts]);
+  const visibleCodexLbAccounts = useMemo(() => {
+    if (tab !== 'all' && tab !== 'codex') return [];
+    const query = search.trim().toLowerCase();
+    return codexLbAccounts.filter(
+      ({ account, keyInfo }) =>
+        !query ||
+        [account.email, account.alias, keyInfo.name].some((value) =>
+          value?.toLowerCase().includes(query)
+        )
+    );
+  }, [codexLbAccounts, tab, search]);
   // Only show providers that have accounts; empty tabs were most of the old clutter.
   const visibleTabIds = useMemo(
     () => TAB_IDS.filter((id) => id === 'all' || id === tab || (tabCounts[id] ?? 0) > 0),
@@ -339,12 +368,12 @@ export function QuotaPage() {
 
   /* ---------- 渲染 ---------- */
 
-  const isEmpty = !loading && filteredEntries.length === 0;
+  const isEmpty = !loading && filteredEntries.length === 0 && visibleCodexLbAccounts.length === 0;
 
   return (
     <div className={styles.page} ref={revealRef}>
       <QuotaHeader
-        totalCount={entries.length}
+        totalCount={entries.length + codexLbAccounts.length}
         loadedCount={loadedCount}
         attentionCount={attentionCount}
         refreshing={loading || batchLoading}
@@ -478,6 +507,9 @@ export function QuotaPage() {
                   </li>
                 );
               })}
+              {visibleCodexLbAccounts.map(({ account, keyInfo }) => (
+                <CodexLbRow key={`codex-lb:${account.id}`} account={account} keyInfo={keyInfo} />
+              ))}
             </ul>
           </div>
         )}

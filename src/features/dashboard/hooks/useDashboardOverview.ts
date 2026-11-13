@@ -308,6 +308,7 @@ export function useDashboardOverview() {
     credentials,
     authFiles,
     authFilesLoadedAt,
+    usageByProvider,
     refresh,
   };
 }

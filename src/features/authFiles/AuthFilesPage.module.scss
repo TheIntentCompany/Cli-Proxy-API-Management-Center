@@ -102,3 +102,29 @@
     gap: 16px;
   }
 }
+
+/* Codex accounts reached through codex-lb, read-only. Rows reuse the Limits row layout. */
+.upstreamSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.upstreamTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 550;
+  color: var(--text-primary);
+}
+
+.upstreamNote {
+  margin: 0 0 8px;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}
+
+.upstreamList {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border-color);
+}

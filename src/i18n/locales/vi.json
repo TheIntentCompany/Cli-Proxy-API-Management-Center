@@ -137,6 +137,8 @@
     "more": "Định tuyến, log, cấu hình, plugin"
   },
   "insights": {
+    "via_codex_lb": "{{accounts}} qua codex-lb",
+    "api_key": "Khóa API {{key}}",
     "title": "Mức dùng cổng",
     "source": "từ CLIProxyAPI {{version}}",
     "updated": "Cập nhật {{time}}",
@@ -244,6 +246,22 @@
     "credits_unlimited": "Tín dụng: không giới hạn",
     "reset_credits": "Tín dụng đặt lại: {{count}}",
     "overage": "Dùng tín dụng sau giới hạn: {{state}}"
+  },
+  "codex_lb": {
+    "monthly": "Hằng tháng",
+    "via": "Codex · qua codex-lb",
+    "section_title": "Kết nối qua codex-lb",
+    "section_note": "Các tài khoản Codex mà cổng dùng qua khóa API của codex-lb. codex-lb giữ các tài khoản này nên đăng nhập và thao tác nằm ở codex-lb; ở đây chỉ xem.",
+    "status_active": "Hoạt động",
+    "status_rate_limited": "Bị giới hạn tốc độ",
+    "status_quota_exceeded": "Hết hạn mức",
+    "status_paused": "Tạm dừng",
+    "status_deactivated": "Đã tắt",
+    "status_blocked": "Bị chặn",
+    "status_until": "{{status}} đến {{date}}",
+    "key": "khóa {{name}}",
+    "key_inactive": "khóa codex-lb không hoạt động",
+    "updated": "cập nhật {{when}}"
   },
   "dashboard": {
     "hero_verdict_good": "Mọi hệ thống ổn định",

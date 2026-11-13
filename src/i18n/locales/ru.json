@@ -136,6 +136,8 @@
     "more": "Маршрутизация, логи, конфигурация, плагины"
   },
   "insights": {
+    "via_codex_lb": "{{accounts}} через codex-lb",
+    "api_key": "API-ключ {{key}}",
     "title": "Использование шлюза",
     "source": "из CLIProxyAPI {{version}}",
     "updated": "Обновлено {{time}}",
@@ -243,6 +245,22 @@
     "credits_unlimited": "Кредиты: без ограничений",
     "reset_credits": "Кредиты сброса: {{count}}",
     "overage": "Кредиты после лимита: {{state}}"
+  },
+  "codex_lb": {
+    "monthly": "Месяц",
+    "via": "Codex · через codex-lb",
+    "section_title": "Подключены через codex-lb",
+    "section_note": "Аккаунты Codex, которые шлюз использует через API-ключи codex-lb. Ими владеет codex-lb, поэтому вход и действия выполняются там; здесь только просмотр.",
+    "status_active": "Активен",
+    "status_rate_limited": "Ограничен по частоте",
+    "status_quota_exceeded": "Квота исчерпана",
+    "status_paused": "Приостановлен",
+    "status_deactivated": "Отключён",
+    "status_blocked": "Заблокирован",
+    "status_until": "{{status}} до {{date}}",
+    "key": "ключ {{name}}",
+    "key_inactive": "ключ codex-lb неактивен",
+    "updated": "обновлено {{when}}"
   },
   "dashboard": {
     "hero_verdict_good": "Всё стабильно",

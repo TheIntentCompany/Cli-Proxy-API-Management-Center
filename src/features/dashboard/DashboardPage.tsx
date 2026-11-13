@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore, useQuotaStore } from '@/stores';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
+import { useCodexLbStatus } from '@/hooks/useCodexLbStatus';
 import { LimitMeter } from '@/components/ui/LimitMeter';
 import { formatCompactNumber } from '@/utils/format';
 import { formatRelative, formatShortDateTime } from '@/utils/relativeTime';
@@ -16,6 +17,8 @@ import {
   RANGE_OPTIONS,
   bucketEndsMinutesAgo,
   buildAccountRows,
+  buildApiKeyRows,
+  withoutApiKeyDuplicates,
   claudeCodexSplit,
   combineBuckets,
   seriesByFamily,
@@ -50,7 +53,9 @@ export function DashboardPage() {
   const serverVersion = useAuthStore((state) => state.serverVersion);
   const claudeQuota = useQuotaStore((state) => state.claudeQuota);
   const codexQuota = useQuotaStore((state) => state.codexQuota);
-  const { connected, config, authFiles, authFilesLoadedAt, refresh } = useDashboardOverview();
+  const { connected, config, authFiles, authFilesLoadedAt, usageByProvider, refresh } =
+    useDashboardOverview();
+  const { status: codexLbStatus } = useCodexLbStatus();
   const { batchLoading, loadQuota } = useQuotaBatchLoader();
 
   useHeaderRefresh(refresh, connected);
@@ -63,9 +68,20 @@ export function DashboardPage() {
   const range = RANGE_OPTIONS.find((option) => option.id === rangeId) ?? RANGE_OPTIONS[2];
   const familyName = (family: ProviderFamily) => t(`insights.family_${family}`);
 
+  // OAuth credentials plus API-key credentials; an API key that reaches a codex-lb
+  // account is named after that account.
   const rows = useMemo(
-    () => buildAccountRows(authFiles ?? [], { claude: claudeQuota, codex: codexQuota }),
-    [authFiles, claudeQuota, codexQuota]
+    () => [
+      ...buildAccountRows(withoutApiKeyDuplicates(authFiles ?? [], usageByProvider), {
+        claude: claudeQuota,
+        codex: codexQuota,
+      }),
+      ...buildApiKeyRows(usageByProvider, codexLbStatus, {
+        viaCodexLb: (accounts) => t('insights.via_codex_lb', { accounts }),
+        apiKey: (masked) => t('insights.api_key', { key: masked }),
+      }),
+    ],
+    [authFiles, usageByProvider, codexLbStatus, claudeQuota, codexQuota, t]
   );
 
   const familiesPresent = useMemo(

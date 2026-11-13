@@ -137,6 +137,8 @@
     "more": "라우팅, 로그, 설정, 플러그인"
   },
   "insights": {
+    "via_codex_lb": "{{accounts}} (codex-lb 경유)",
+    "api_key": "API 키 {{key}}",
     "title": "게이트웨이 사용량",
     "source": "CLIProxyAPI {{version}} 기준",
     "updated": "{{time}} 업데이트",
@@ -244,6 +246,22 @@
     "credits_unlimited": "크레딧: 무제한",
     "reset_credits": "초기화 크레딧: {{count}}",
     "overage": "한도 후 크레딧 사용: {{state}}"
+  },
+  "codex_lb": {
+    "monthly": "월간",
+    "via": "Codex · codex-lb 경유",
+    "section_title": "codex-lb를 통해 연결됨",
+    "section_note": "이 게이트웨이가 codex-lb API 키로 사용하는 Codex 계정입니다. 계정은 codex-lb가 보유하므로 로그인과 작업은 codex-lb에서 합니다. 여기서는 읽기 전용입니다.",
+    "status_active": "정상",
+    "status_rate_limited": "속도 제한됨",
+    "status_quota_exceeded": "할당량 소진",
+    "status_paused": "일시 중지",
+    "status_deactivated": "비활성화됨",
+    "status_blocked": "차단됨",
+    "status_until": "{{date}}까지 {{status}}",
+    "key": "키 {{name}}",
+    "key_inactive": "codex-lb 키 비활성",
+    "updated": "{{when}} 업데이트"
   },
   "dashboard": {
     "hero_verdict_good": "모든 시스템 정상",

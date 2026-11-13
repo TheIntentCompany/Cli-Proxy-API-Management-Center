@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useInterval } from '@/hooks/useInterval';
@@ -19,6 +19,9 @@ import {
   type ResolvedTheme,
 } from '@/features/authFiles/constants';
 import { AuthFileCard } from '@/features/authFiles/components/AuthFileCard';
+import { CodexLbRow } from '@/features/quota/components/CodexLbRow';
+import { flattenCodexLbAccounts } from '@/services/api/codexLb';
+import { useCodexLbStatus } from '@/hooks/useCodexLbStatus';
 import { AuthFileDetailsSheet } from '@/features/authFiles/components/AuthFileDetailsSheet';
 import { getAuthFileRefreshKey } from '@/features/authFiles/manualRefresh';
 import { AuthFileRefreshResults } from '@/features/authFiles/components/AuthFileRefreshResults';
@@ -77,6 +80,13 @@ const normalizePersistedStatusFilterMode = (value: unknown): AuthFilesStatusFilt
 
 export function AuthFilesPage() {
   const { t } = useTranslation();
+  // Codex accounts reached through codex-lb: listed read-only below the credentials.
+  const { status: codexLbStatus } = useCodexLbStatus();
+  const codexLbAccounts = useMemo(
+    () => flattenCodexLbAccounts(codexLbStatus?.keys),
+    [codexLbStatus]
+  );
+  const upstreamHeadingId = useId();
   const showNotification = useNotificationStore((state) => state.showNotification);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
@@ -757,6 +767,20 @@ export function AuthFilesPage() {
           </div>
         )}
       </section>
+
+      {codexLbAccounts.length > 0 && (
+        <section className={styles.upstreamSection} aria-labelledby={upstreamHeadingId}>
+          <h2 className={styles.upstreamTitle} id={upstreamHeadingId}>
+            {t('codex_lb.section_title')}
+          </h2>
+          <p className={styles.upstreamNote}>{t('codex_lb.section_note')}</p>
+          <ul className={styles.upstreamList}>
+            {codexLbAccounts.map(({ account, keyInfo }) => (
+              <CodexLbRow key={account.id} account={account} keyInfo={keyInfo} />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className={styles.configGrid} ref={oauthSectionRef}>
         <OAuthExcludedCard

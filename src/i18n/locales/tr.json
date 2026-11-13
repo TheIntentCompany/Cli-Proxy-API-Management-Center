@@ -137,6 +137,8 @@
     "more": "Yönlendirme, günlükler, yapılandırma, eklentiler"
   },
   "insights": {
+    "via_codex_lb": "{{accounts}} (codex-lb üzerinden)",
+    "api_key": "API anahtarı {{key}}",
     "title": "Ağ geçidi kullanımı",
     "source": "CLIProxyAPI {{version}} verisi",
     "updated": "{{time}} güncellendi",
@@ -244,6 +246,22 @@
     "credits_unlimited": "Kredi: sınırsız",
     "reset_credits": "Sıfırlama kredisi: {{count}}",
     "overage": "Limitten sonra kredi kullanımı: {{state}}"
+  },
+  "codex_lb": {
+    "monthly": "Aylık",
+    "via": "Codex · codex-lb üzerinden",
+    "section_title": "codex-lb üzerinden bağlı",
+    "section_note": "Bu ağ geçidinin codex-lb API anahtarlarıyla kullandığı Codex hesapları. Hesaplar codex-lb'dedir; oturum açma ve işlemler orada yapılır, burası salt okunurdur.",
+    "status_active": "Etkin",
+    "status_rate_limited": "Hız sınırında",
+    "status_quota_exceeded": "Kota bitti",
+    "status_paused": "Duraklatıldı",
+    "status_deactivated": "Devre dışı",
+    "status_blocked": "Engellendi",
+    "status_until": "{{date}} tarihine kadar {{status}}",
+    "key": "anahtar {{name}}",
+    "key_inactive": "codex-lb anahtarı etkin değil",
+    "updated": "{{when}} güncellendi"
   },
   "dashboard": {
     "hero_verdict_good": "Tüm Sistemler Dengede",

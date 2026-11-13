@@ -8,6 +8,9 @@
  * captured from the provider's latest response). Nothing is estimated.
  */
 import type { AuthFileItem } from '@/types/authFile';
+import type { CodexLbStatus } from '@/services/api/codexLb';
+import { codexLbAccountName, codexLbKeyForApiKey } from '@/services/api/codexLb';
+import type { RecentRequestUsageEntry } from '@/utils/recentRequests';
 import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { normalizeRecentRequestUsageEntry } from '@/utils/recentRequests';
@@ -41,8 +44,11 @@ export interface LimitReading {
   /** 0 to 100. */
   usedPercent: number;
   resetAtMs: number | null;
-  /** `usage` is a read of the provider's usage endpoint; `headers` came with a served request. */
-  source: 'usage' | 'headers';
+  /**
+   * `usage` is a read of the provider's usage endpoint; `headers` came with a served
+   * request; `codex-lb` is codex-lb's own record for an account it holds.
+   */
+  source: 'usage' | 'headers' | 'codex-lb';
   observedAtMs: number | null;
 }
 
@@ -309,3 +315,99 @@ export const claudeCodexSplit = (series: FamilySeries[]): ShareSplit => {
 /** Minutes before now at which bucket `index` (of `count`, oldest first) ends. */
 export const bucketEndsMinutesAgo = (index: number, count: number): number =>
   (count - 1 - index) * TRAFFIC_BUCKET_MINUTES;
+
+/** Short, stable, non-reversible tag for a value that must not appear in the DOM. */
+const fnv1a = (value: string): string => {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16);
+};
+
+export interface ApiKeyRowNaming {
+  /** Name for an entry routed to codex-lb accounts, for example "a@b.com via codex-lb". */
+  viaCodexLb: (accounts: string) => string;
+  /** Name for any other API-key entry, given the masked key. */
+  apiKey: (masked: string) => string;
+}
+
+const maskKey = (key: string): string =>
+  key.length <= 6 ? '…' : `${key.slice(0, 3)}…${key.slice(-2)}`;
+
+/**
+ * Rows for CLIProxyAPI's API-key credentials, from `observability/usage/api-keys`.
+ * The usage map is keyed by `<baseUrl>|<apiKey>`; the key itself never leaves this
+ * function except masked. An entry whose key belongs to codex-lb takes the name and
+ * limits of the upstream account it reaches.
+ */
+export const buildApiKeyRows = (
+  usage: Map<string, Map<string, RecentRequestUsageEntry>>,
+  codexLb: CodexLbStatus | null,
+  naming: ApiKeyRowNaming
+): AccountRow[] => {
+  const rows: AccountRow[] = [];
+  usage.forEach((entries, provider) => {
+    entries.forEach((entry, compositeKey) => {
+      const separator = compositeKey.indexOf('|');
+      const apiKey = separator < 0 ? '' : compositeKey.slice(separator + 1).trim();
+      const lbKey = codexLbKeyForApiKey(codexLb, apiKey);
+      const lbAccounts = lbKey?.accounts ?? [];
+      // Limits only make sense when the key reaches exactly one account.
+      const lbAccount = lbAccounts.length === 1 ? lbAccounts[0] : null;
+      const window = (kind: 'five_hour' | 'weekly'): LimitReading | null => {
+        const found = lbAccount?.windows.find((candidate) => candidate.kind === kind);
+        return found && found.usedPercent !== null
+          ? {
+              usedPercent: found.usedPercent,
+              resetAtMs: found.resetAtMs,
+              source: 'codex-lb',
+              observedAtMs: found.recordedAtMs,
+            }
+          : null;
+      };
+      const blocked = lbAccount?.status ? lbAccount.status !== 'active' : false;
+      rows.push({
+        key: `apikey:${provider}:${fnv1a(compositeKey)}`,
+        name:
+          lbAccounts.length > 0
+            ? naming.viaCodexLb(lbAccounts.map(codexLbAccountName).join(', '))
+            : naming.apiKey(maskKey(apiKey)),
+        family: familyOf(provider),
+        provider,
+        disabled: false,
+        unavailable: blocked,
+        buckets: alignBuckets(entry.recentRequests),
+        sinceStart: { success: entry.success, failed: entry.failed },
+        limits: { fiveHour: window('five_hour'), weekly: window('weekly') },
+      });
+    });
+  });
+  return rows;
+};
+
+/**
+ * API-key credentials can also surface in the credential list; keep only the
+ * usage-endpoint copy so their requests are not counted twice.
+ */
+export const withoutApiKeyDuplicates = (
+  files: AuthFileItem[],
+  usage: Map<string, Map<string, RecentRequestUsageEntry>>
+): AuthFileItem[] => {
+  const keys = new Set<string>();
+  usage.forEach((entries) =>
+    entries.forEach((_, compositeKey) => {
+      const separator = compositeKey.indexOf('|');
+      if (separator >= 0) keys.add(compositeKey.slice(separator + 1).trim());
+    })
+  );
+  if (keys.size === 0) return files;
+  return files.filter((file) => {
+    const type = String(file.account_type ?? '')
+      .trim()
+      .toLowerCase();
+    const account = String(file.account ?? '').trim();
+    return !(type === 'api_key' && account && keys.has(account));
+  });
+};
