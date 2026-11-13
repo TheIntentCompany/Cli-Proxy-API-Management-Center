@@ -149,12 +149,17 @@ export function AuthFileCard(props: AuthFileCardProps) {
         )}
         <h3 className={styles.identity}>
           <span
-            className={styles.providerBadge}
-            style={{
-              backgroundColor: typeColor.bg,
-              color: typeColor.text,
-              ...(typeColor.border ? { border: typeColor.border } : {}),
-            }}
+            className={`${styles.providerBadge} ${resolvedTheme === 'dark' ? styles.providerText : ''}`}
+            style={
+              // Dark rows name the provider in its color, without a filled pill.
+              resolvedTheme === 'dark'
+                ? { color: typeColor.text }
+                : {
+                    backgroundColor: typeColor.bg,
+                    color: typeColor.text,
+                    ...(typeColor.border ? { border: typeColor.border } : {}),
+                  }
+            }
           >
             {typeLabel}
           </span>

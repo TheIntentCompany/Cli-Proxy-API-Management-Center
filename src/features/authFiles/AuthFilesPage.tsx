@@ -11,14 +11,11 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { copyToClipboard } from '@/utils/clipboard';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import {
-  QUOTA_PROVIDER_TYPES,
   clampCardPageSize,
   getTypeLabel,
   isProblemAuthFile,
   isRuntimeOnlyAuthFile,
   normalizeProviderKey,
-  type AuthFileQuotaFilter,
-  type QuotaProviderType,
   type ResolvedTheme,
 } from '@/features/authFiles/constants';
 import { AuthFileCard } from '@/features/authFiles/components/AuthFileCard';
@@ -199,13 +196,6 @@ export function AuthFilesPage() {
 
   const disableControls = connectionStatus !== 'connected' || refreshingAllCredentials;
   const normalizedFilter = normalizeProviderKey(String(filter));
-  const quotaFilterType: QuotaProviderType | null = QUOTA_PROVIDER_TYPES.has(
-    normalizedFilter as QuotaProviderType
-  )
-    ? (normalizedFilter as QuotaProviderType)
-    : null;
-  const activeQuotaFilter: AuthFileQuotaFilter =
-    normalizedFilter === 'all' ? 'all' : (quotaFilterType ?? normalizedFilter) || null;
   const pageSize = compactMode ? pageSizeByMode.compact : pageSizeByMode.regular;
   const problemOnly = statusFilterMode === 'problem';
   const disabledOnly = statusFilterMode === 'disabled';
@@ -586,11 +576,7 @@ export function AuthFilesPage() {
   const isFirstRunEmpty = !loading && files.length === 0 && !error;
   const isNoResults = !loading && files.length > 0 && pageItems.length === 0;
 
-  const gridClasses = [
-    styles.grid,
-    compactMode ? styles.gridCompact : '',
-    activeQuotaFilter ? styles.gridQuota : '',
-  ]
+  const gridClasses = [styles.grid, compactMode ? styles.gridCompact : '']
     .filter(Boolean)
     .join(' ');
 
@@ -726,7 +712,8 @@ export function AuthFilesPage() {
                 statusUpdating={statusUpdating}
                 manualRefreshing={manualRefreshing}
                 cooldownResetting={cooldownResetting}
-                quotaFilterType={activeQuotaFilter}
+                // Limits live on their own page now; account rows stay about access.
+                quotaFilterType={null}
                 statusBarCache={statusBarCache}
                 entranceDelayMs={cardEntranceDelay(index)}
                 onShowModels={showModels}

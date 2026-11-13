@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
@@ -154,13 +154,28 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
   );
 
   const allGroups = useMemo(() => workbench.snapshot?.groups ?? [], [workbench.snapshot]);
-  const groups = useMemo(
-    () =>
-      fixedBrand
-        ? allGroups.filter((group) => group.id === fixedBrand)
-        : allGroups.filter((group) => group.id !== 'apikeyFun'),
-    [allGroups, fixedBrand]
-  );
+  const groups = useMemo(() => {
+    if (fixedBrand) return allGroups.filter((group) => group.id === fixedBrand);
+    // Providers that already hold keys lead the list; empty ones keep their order below.
+    const visible = allGroups.filter((group) => group.id !== 'apikeyFun');
+    return [
+      ...visible.filter((group) => group.resources.length > 0),
+      ...visible.filter((group) => group.resources.length === 0),
+    ];
+  }, [allGroups, fixedBrand]);
+
+  // Open on a provider that has keys when the remembered one is empty. Runs once per
+  // visit, so choosing an empty provider to add its first key is never overridden.
+  const landedRef = useRef(false);
+  useEffect(() => {
+    if (landedRef.current || fixedBrand || groups.length === 0) return;
+    landedRef.current = true;
+    const remembered = groups.find((group) => group.id === uiState.activeBrand);
+    const firstWithKeys = groups.find((group) => group.resources.length > 0);
+    if (firstWithKeys && (!remembered || remembered.resources.length === 0)) {
+      setActiveBrand(firstWithKeys.id);
+    }
+  }, [fixedBrand, groups, setActiveBrand, uiState.activeBrand]);
   const firstVisibleBrand = groups[0]?.id ?? fixedBrand ?? 'gemini';
   const activeBrand =
     fixedBrand ??

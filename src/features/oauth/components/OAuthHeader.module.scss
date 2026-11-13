@@ -11,9 +11,9 @@
 
 .title {
   margin: 0;
-  font-size: clamp(26px, 3.2vw, 30px);
+  font-size: 24px;
   line-height: 1.15;
-  font-weight: 700;
+  font-weight: 550;
   letter-spacing: -0.02em;
   color: var(--text-primary);
 }
@@ -32,7 +32,7 @@
   color: var(--text-secondary);
 
   &::before {
-    content: '▍';
+    content: none;
     color: var(--viz-success);
     font-size: 13px;
     line-height: 1;

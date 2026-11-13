@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { authFilesApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useModelsStore } from '@/stores';
 import { useApiKeysForModels } from '@/hooks/useApiKeysForModels';
+import { useInterval } from '@/hooks/useInterval';
 import { useProviderRecentRequests } from '@/components/providers/hooks/useProviderRecentRequests';
 import {
   mergeRecentRequestBucketGroups,
@@ -17,6 +18,8 @@ import {
   type ProviderTraffic,
   type TrafficWindow,
 } from '../types';
+
+const AUTH_FILES_POLL_MS = 30_000;
 
 const EMPTY_TRAFFIC: TrafficWindow = {
   buckets: [],
@@ -128,16 +131,28 @@ export function useDashboardOverview() {
   });
 
   const [authFiles, setAuthFiles] = useState<AuthFileItem[] | null>(null);
+  const [authFilesLoadedAt, setAuthFilesLoadedAt] = useState<number | null>(null);
 
   const loadAuthFiles = useCallback(async () => {
     if (!connected) return;
     try {
       const response = await authFilesApi.list();
       setAuthFiles(response.files);
+      setAuthFilesLoadedAt(Date.now());
     } catch {
       setAuthFiles(null);
     }
   }, [connected]);
+
+  // Per-account buckets only move forward when re-read; keep them current while the
+  // page is open and visible.
+  useInterval(
+    () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void loadAuthFiles();
+    },
+    connected ? AUTH_FILES_POLL_MS : null
+  );
 
   const loadModels = useCallback(async () => {
     if (!connected || !apiBase) return;
@@ -291,6 +306,8 @@ export function useDashboardOverview() {
     traffic,
     providers,
     credentials,
+    authFiles,
+    authFilesLoadedAt,
     refresh,
   };
 }

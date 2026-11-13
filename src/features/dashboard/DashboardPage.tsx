@@ -1,541 +1,624 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  IconBot,
-  IconFileText,
-  IconSidebarConfig,
-  IconSidebarLogs,
-  IconSidebarQuota,
-  IconSidebarSystem,
-} from '@/components/ui/icons';
-import { useAuthStore } from '@/stores';
+import { useAuthStore, useQuotaStore } from '@/stores';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
-import { formatCompactNumber, formatDateValue, formatPercent } from '@/utils/format';
+import { useNow } from '@/hooks/useNow';
+import { LimitMeter } from '@/components/ui/LimitMeter';
+import { formatCompactNumber } from '@/utils/format';
+import { formatRelative, formatShortDateTime } from '@/utils/relativeTime';
+import { classifyQuotaFiles } from '@/features/quota/logic';
+import { useQuotaBatchLoader } from '@/features/quota/hooks/useQuotaBatchLoader';
 import { useDashboardOverview } from './hooks/useDashboardOverview';
-import { LiveWire } from './components/LiveWire';
-import { Meter } from './components/Meter';
-import { Sparkline } from './components/Sparkline';
-import { ThroughputChart } from './components/ThroughputChart';
-import { useCountUp, useRevealGroup, useRevealOnScroll } from '@/hooks/motion';
-import { providerLabel, splitWindowMinutes, toneForSuccessRate, type MeterTone } from './utils';
+import { LineChart, type LineSeries } from './components/LineChart';
+import {
+  BUCKETS_PER_WINDOW,
+  RANGE_OPTIONS,
+  bucketEndsMinutesAgo,
+  buildAccountRows,
+  claudeCodexSplit,
+  combineBuckets,
+  seriesByFamily,
+  successRateSeries,
+  sumBuckets,
+  type AccountRow,
+  type LimitReading,
+  type ProviderFamily,
+} from './insights';
 import styles from './dashboard.module.scss';
 
-const DASH = '—';
+type Metric = 'requests' | 'success';
 
-/** KPI 卡左上角色签：有语义色调的卡用状态色，其余保持中性 */
-const TILE_ACCENTS: Record<MeterTone, string> = {
-  good: 'var(--viz-success)',
-  warning: 'var(--amber-color)',
-  critical: 'var(--viz-failure)',
-  idle: 'var(--text-quaternary)',
+const FAMILY_COLOR: Record<ProviderFamily, string> = {
+  claude: 'var(--viz-claude)',
+  codex: 'var(--viz-codex)',
+  other: 'var(--viz-other)',
 };
 
-/** 大数字：六位以内用千分位，再往上压缩，避免撑破排版 */
-const formatHeadline = (value: number): string =>
-  value < 100_000 ? value.toLocaleString() : formatCompactNumber(value);
+const DASH = '–';
+
+const formatCount = (value: number): string =>
+  value < 10_000 ? Math.round(value).toLocaleString() : formatCompactNumber(value);
+
+const formatShare = (value: number): string => `${value.toFixed(1)}%`;
 
 export function DashboardPage() {
   const { t, i18n } = useTranslation();
+  const locale = i18n.language;
+  // Minute clock: relative labels stay current without re-rendering every frame.
+  const now = useNow();
   const serverVersion = useAuthStore((state) => state.serverVersion);
-  const serverBuildDate = useAuthStore((state) => state.serverBuildDate);
-
-  const { connectionStatus, connected, config, counts, traffic, providers, credentials, refresh } =
-    useDashboardOverview();
+  const claudeQuota = useQuotaStore((state) => state.claudeQuota);
+  const codexQuota = useQuotaStore((state) => state.codexQuota);
+  const { connected, config, authFiles, authFilesLoadedAt, refresh } = useDashboardOverview();
+  const { batchLoading, loadQuota } = useQuotaBatchLoader();
 
   useHeaderRefresh(refresh, connected);
 
-  /* Hero 与静态网格走分组级联；异步内容区（图表/供应商）保持整块 reveal */
-  const heroRef = useRevealGroup<HTMLElement>();
-  const statsRef = useRevealGroup<HTMLElement>(0.12);
-  const trafficRef = useRevealOnScroll<HTMLElement>();
-  const fleetRef = useRevealOnScroll<HTMLElement>();
-  const detailRef = useRevealGroup<HTMLElement>();
-  const ctaRef = useRevealGroup<HTMLElement>();
+  const [metric, setMetric] = useState<Metric>('requests');
+  const [rangeId, setRangeId] = useState('all');
+  const [hiddenFamilies, setHiddenFamilies] = useState<Set<ProviderFamily>>(new Set());
+  const [hiddenAccounts, setHiddenAccounts] = useState<Set<string>>(new Set());
 
-  const animatedTotal = useCountUp(traffic.total, connected);
+  const range = RANGE_OPTIONS.find((option) => option.id === rangeId) ?? RANGE_OPTIONS[2];
+  const familyName = (family: ProviderFamily) => t(`insights.family_${family}`);
 
-  const windowLabel = useMemo(() => {
-    if (traffic.windowMinutes <= 0) return DASH;
-    const { hours, minutes } = splitWindowMinutes(traffic.windowMinutes);
-    if (hours === 0) return t('dashboard.window_m', { minutes });
-    if (minutes === 0) return t('dashboard.window_h', { hours });
-    return t('dashboard.window_hm', { hours, minutes });
-  }, [traffic.windowMinutes, t]);
-
-  const heroSparkPoints = useMemo(
-    () => traffic.buckets.map((bucket) => bucket.success + bucket.failed),
-    [traffic.buckets]
+  const rows = useMemo(
+    () => buildAccountRows(authFiles ?? [], { claude: claudeQuota, codex: codexQuota }),
+    [authFiles, claudeQuota, codexQuota]
   );
 
-  const routingStrategy = useMemo(() => {
-    const raw = config?.routingStrategy?.trim() ?? '';
-    if (!raw) return DASH;
-    if (raw === 'round-robin') return t('basic_settings.routing_strategy_round_robin');
-    if (raw === 'weighted-round-robin') {
-      return t('basic_settings.routing_strategy_weighted_round_robin');
-    }
-    if (raw === 'fill-first') return t('basic_settings.routing_strategy_fill_first');
-    return raw;
-  }, [config?.routingStrategy, t]);
-
-  const unknownProviderLabel = t('dashboard.provider_unknown');
-  const successRateTone = toneForSuccessRate(traffic.successRate);
-
-  /** 标题是算出来的判词，不是写死的口号；句尾句号充当状态灯 */
-  const verdict = useMemo(() => {
-    if (!connected) {
-      return connectionStatus === 'connecting'
-        ? { key: 'hero_verdict_connecting', accent: 'var(--amber-color)' }
-        : { key: 'hero_verdict_offline', accent: 'var(--text-quaternary)' };
-    }
-    if (traffic.total === 0 || traffic.successRate === null) {
-      return { key: 'hero_verdict_idle', accent: 'var(--text-quaternary)' };
-    }
-    const keyByTone: Record<MeterTone, string> = {
-      good: 'hero_verdict_good',
-      warning: 'hero_verdict_warning',
-      critical: 'hero_verdict_critical',
-      idle: 'hero_verdict_idle',
-    };
-    return { key: keyByTone[successRateTone], accent: TILE_ACCENTS[successRateTone] };
-  }, [connected, connectionStatus, traffic.total, traffic.successRate, successRateTone]);
-
-  /* 句号状态灯只在「有活着的流量」时呼吸；离线/静默时保持安静 */
-  const heroAlive = connected && traffic.total > 0;
-
-  const connectionLabel = t(
-    connectionStatus === 'connected'
-      ? 'common.connected'
-      : connectionStatus === 'connecting'
-        ? 'common.connecting'
-        : 'common.disconnected'
+  const familiesPresent = useMemo(
+    () =>
+      (['claude', 'codex', 'other'] as ProviderFamily[]).filter((f) =>
+        rows.some((r) => r.family === f)
+      ),
+    [rows]
   );
-  const versionLabel = serverVersion ? `v${serverVersion.trim().replace(/^[vV]+/, '')}` : null;
-  const heroMetaLine = [versionLabel, connectionLabel].filter(Boolean).join(' · ');
 
-  const statTiles = [
-    {
-      key: 'success',
-      label: t('dashboard.success_rate'),
-      value: traffic.successRate === null ? DASH : formatPercent(traffic.successRate),
-      hint: t('dashboard.stat_success_hint', { total: traffic.total.toLocaleString() }),
-      meter: traffic.successRate,
-      tone: successRateTone,
-    },
-    {
-      key: 'credentials',
-      label: t('dashboard.stat_credentials'),
-      value: credentials ? credentials.total.toLocaleString() : DASH,
-      hint: credentials
-        ? t('dashboard.stat_credentials_hint', {
-            active: credentials.active,
-            disabled: credentials.disabled + credentials.unavailable,
-          })
-        : t('dashboard.stat_credentials_empty'),
-      meter:
-        credentials && credentials.total > 0
-          ? (credentials.active / credentials.total) * 100
-          : null,
-      tone: undefined,
-    },
-    {
-      key: 'providerKeys',
-      label: t('dashboard.stat_provider_keys'),
-      value: counts.providerKeys === null ? DASH : counts.providerKeys.toLocaleString(),
-      hint: t('dashboard.stat_provider_keys_hint'),
-      meter: null,
-      tone: undefined,
-    },
-    {
-      key: 'models',
-      label: t('dashboard.stat_models'),
-      value: counts.models === null ? DASH : counts.models.toLocaleString(),
-      hint: t('dashboard.stat_models_hint'),
-      meter: null,
-      tone: undefined,
-    },
-  ];
+  const visibleRows = useMemo(
+    () => rows.filter((row) => !hiddenFamilies.has(row.family) && !hiddenAccounts.has(row.key)),
+    [rows, hiddenFamilies, hiddenAccounts]
+  );
 
-  const runtimeRows: Array<{ label: string; value: string; mono?: boolean }> = [
-    { label: t('dashboard.runtime_routing'), value: routingStrategy },
-    { label: t('dashboard.runtime_retry'), value: String(config?.requestRetry ?? 0) },
-    {
-      label: t('dashboard.runtime_management_keys'),
-      value: counts.managementKeys === null ? DASH : String(counts.managementKeys),
-    },
-    { label: t('dashboard.runtime_version'), value: serverVersion?.trim() || DASH },
-    {
-      label: t('dashboard.runtime_build'),
-      value: formatDateValue(serverBuildDate, i18n.language) || DASH,
-    },
-    { label: t('dashboard.runtime_proxy'), value: config?.proxyUrl?.trim() || DASH, mono: true },
-  ];
+  const familySeries = useMemo(
+    () => seriesByFamily(visibleRows, range.buckets),
+    [visibleRows, range]
+  );
+  const allFamilySeries = useMemo(() => seriesByFamily(rows, range.buckets), [rows, range]);
+  const combined = useMemo(() => combineBuckets(visibleRows, range.buckets), [visibleRows, range]);
+  const totals = sumBuckets(combined);
+  const requests = totals.success + totals.failed;
+  const successRate = requests > 0 ? (totals.success / requests) * 100 : null;
+  const split = claudeCodexSplit(familySeries);
+  const grandTotal = allFamilySeries.reduce((sum, item) => sum + item.total, 0);
 
-  const runtimeToggles = config
-    ? [
-        { label: t('dashboard.runtime_debug'), on: Boolean(config.debug) },
-        { label: t('dashboard.runtime_file_logging'), on: Boolean(config.loggingToFile) },
-        { label: t('dashboard.runtime_request_log'), on: Boolean(config.requestLog) },
-        { label: t('dashboard.runtime_ws_auth'), on: Boolean(config.wsAuth) },
-        { label: t('dashboard.runtime_model_prefix'), on: Boolean(config.forceModelPrefix) },
-      ]
-    : [];
+  const count = range.buckets;
+  const xLabel = (index: number) => {
+    const ago = bucketEndsMinutesAgo(index, count);
+    return ago === 0 ? t('insights.now') : formatRelative(now - ago * 60_000, now, locale);
+  };
+  const xTicks = useMemo(() => {
+    const step = count <= 6 ? 1 : count <= 12 ? 3 : 6;
+    const ticks: number[] = [];
+    for (let index = count - 1; index >= 0; index -= step) ticks.unshift(index);
+    if (ticks[0] !== 0 && ticks[0] > step / 2) ticks.unshift(0);
+    else if (ticks[0] !== 0) ticks[0] = 0;
+    return ticks;
+  }, [count]);
 
-  const ctaCards = [
-    {
-      to: '/ai-providers',
-      icon: <IconBot size={20} />,
-      title: t('nav.ai_providers'),
-      description: t('dashboard.cta_providers_desc'),
-    },
-    {
-      to: '/auth-files',
-      icon: <IconFileText size={20} />,
-      title: t('nav.auth_files'),
-      description: t('dashboard.cta_auth_files_desc'),
-    },
-    {
-      to: '/config',
-      icon: <IconSidebarConfig size={20} />,
-      title: t('nav.config_management'),
-      description: t('dashboard.cta_config_desc'),
-    },
-    {
-      to: '/quota',
-      icon: <IconSidebarQuota size={20} />,
-      title: t('nav.quota_management'),
-      description: t('dashboard.cta_quota_desc'),
-    },
-    {
-      to: '/logs',
-      icon: <IconSidebarLogs size={20} />,
-      title: t('nav.logs'),
-      description: t('dashboard.cta_logs_desc'),
-    },
-    {
-      to: '/system',
-      icon: <IconSidebarSystem size={20} />,
-      title: t('nav.system_info'),
-      description: t('dashboard.cta_system_desc'),
-    },
-  ];
+  const chartSeries: LineSeries[] =
+    metric === 'requests'
+      ? familySeries.map((item) => ({
+          id: item.family,
+          label: familyName(item.family),
+          color: FAMILY_COLOR[item.family],
+          values: item.values,
+          area: true,
+        }))
+      : [
+          {
+            id: 'success',
+            label: t('insights.success_rate'),
+            color: 'var(--viz-codex)',
+            values: successRateSeries(combined),
+          },
+        ];
+
+  const failureMarkers =
+    metric === 'success'
+      ? combined
+          .map((bucket, index) => ({ bucket, index }))
+          .filter(({ bucket }) => bucket.failed > 0)
+          .map(({ index }) => ({ index, seriesId: 'success' }))
+      : [];
+
+  const limitRows = useMemo(
+    () =>
+      visibleRows
+        .filter((row) => row.family !== 'other')
+        .sort(
+          (a, b) => (b.limits.weekly?.usedPercent ?? -1) - (a.limits.weekly?.usedPercent ?? -1)
+        ),
+    [visibleRows]
+  );
+
+  const servedRows = useMemo(
+    () =>
+      visibleRows
+        .map((row) => ({ row, window: sumBuckets(row.buckets.slice(-range.buckets)) }))
+        .sort(
+          (a, b) =>
+            b.window.success + b.window.failed - (a.window.success + a.window.failed) ||
+            b.row.sinceStart.success - a.row.sinceStart.success
+        ),
+    [visibleRows, range]
+  );
+  const servedPeak = Math.max(1, ...servedRows.map(({ window }) => window.success + window.failed));
+
+  const readLimits = () => {
+    if (!authFiles) return;
+    const targets = classifyQuotaFiles(authFiles).filter(
+      (entry) => entry.type === 'claude' || entry.type === 'codex'
+    );
+    void loadQuota(targets);
+  };
+
+  const toggleFamily = (family: ProviderFamily) =>
+    setHiddenFamilies((current) => {
+      const next = new Set(current);
+      if (next.has(family)) next.delete(family);
+      else next.add(family);
+      return next;
+    });
+  const toggleAccount = (key: string) =>
+    setHiddenAccounts((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const limitDetail = (reading: LimitReading | null): string => {
+    if (!reading) return '';
+    const parts: string[] = [];
+    if (reading.resetAtMs) {
+      parts.push(t('insights.resets', { when: formatRelative(reading.resetAtMs, now, locale) }));
+    }
+    if (reading.observedAtMs) {
+      parts.push(
+        t(reading.source === 'usage' ? 'insights.read_at' : 'insights.seen_at', {
+          when: formatRelative(reading.observedAtMs, now, locale),
+        })
+      );
+    }
+    return parts.join(' · ');
+  };
+
+  const lead = split.leadPoints;
+  const routing = config?.routingStrategy?.trim() || DASH;
 
   return (
     <div className={styles.page}>
-      <div className={styles.ambient} aria-hidden="true">
-        <span className={styles.washTop} />
-        <span className={styles.gridWash} />
+      <div className={styles.main}>
+        <header className={styles.header}>
+          <div className={styles.titleRow}>
+            <h1 className={styles.title}>{t('insights.title')}</h1>
+            <span className={styles.titleMeta}>
+              {t('insights.source', { version: serverVersion?.trim() || DASH })}
+            </span>
+            <span className={styles.updated}>
+              {authFilesLoadedAt
+                ? t('insights.updated', { time: formatShortDateTime(authFilesLoadedAt, locale) })
+                : t('insights.loading')}
+            </span>
+          </div>
+          <div className={styles.tabs} role="toolbar" aria-label={t('insights.view_controls')}>
+            <div className={styles.tabGroup} role="group" aria-label={t('insights.metric')}>
+              {(['requests', 'success'] as Metric[]).map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`${styles.tab} ${metric === id ? styles.tabActive : ''}`}
+                  aria-pressed={metric === id}
+                  onClick={() => setMetric(id)}
+                >
+                  {t(id === 'requests' ? 'insights.metric_requests' : 'insights.metric_success')}
+                </button>
+              ))}
+            </div>
+            <span className={styles.tabDivider} aria-hidden="true" />
+            <div className={styles.tabGroup} role="group" aria-label={t('insights.range')}>
+              {RANGE_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`${styles.tab} ${rangeId === option.id ? styles.tabActive : ''}`}
+                  aria-pressed={rangeId === option.id}
+                  onClick={() => setRangeId(option.id)}
+                >
+                  {t(`insights.range_${option.id}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </header>
+
+        {metric === 'requests' && split.claudeShare !== null && split.codexShare !== null ? (
+          <section className={styles.headline} aria-label={t('insights.share_title')}>
+            <div className={styles.side}>
+              <span className={styles.sideName}>
+                <span className={styles.swatch} style={{ background: FAMILY_COLOR.claude }} />
+                {familyName('claude')}
+              </span>
+              <span className={`${styles.hero} ${styles.heroClaude}`}>
+                {formatShare(split.claudeShare)}
+              </span>
+            </div>
+            <div className={styles.lead}>
+              <span className={styles.leadMeta}>{t(`insights.range_${range.id}_long`)}</span>
+              <span className={styles.leadValue}>
+                {lead === 0 ? '0' : `+${Math.abs(lead ?? 0).toFixed(1)}`}
+                <span className={styles.leadUnit}>pp</span>
+              </span>
+              <span className={styles.leadMeta}>
+                {lead === 0
+                  ? t('insights.even')
+                  : t('insights.leads', { name: familyName((lead ?? 0) > 0 ? 'claude' : 'codex') })}
+              </span>
+            </div>
+            <div className={`${styles.side} ${styles.sideRight}`}>
+              <span className={styles.sideName}>
+                <span className={styles.swatch} style={{ background: FAMILY_COLOR.codex }} />
+                {familyName('codex')}
+              </span>
+              <span className={styles.hero}>{formatShare(split.codexShare)}</span>
+            </div>
+          </section>
+        ) : (
+          <section className={styles.headline}>
+            <div className={styles.side}>
+              <span className={styles.sideName}>
+                {metric === 'requests' ? t('insights.requests') : t('insights.success_rate')}
+              </span>
+              <span className={styles.hero}>
+                {metric === 'requests'
+                  ? formatCount(requests)
+                  : successRate === null
+                    ? DASH
+                    : formatShare(successRate)}
+              </span>
+            </div>
+            <div className={styles.lead}>
+              <span className={styles.leadMeta}>{t(`insights.range_${range.id}_long`)}</span>
+            </div>
+            <div className={`${styles.side} ${styles.sideRight}`}>
+              <span className={styles.sideName}>
+                {metric === 'requests' ? t('insights.success_rate') : t('insights.failed')}
+              </span>
+              <span className={styles.hero}>
+                {metric === 'requests'
+                  ? successRate === null
+                    ? DASH
+                    : formatShare(successRate)
+                  : formatCount(totals.failed)}
+              </span>
+            </div>
+          </section>
+        )}
+
+        <div className={styles.chart}>
+          {visibleRows.length === 0 ? (
+            <p className={styles.empty}>
+              {authFiles === null ? t('insights.loading') : t('insights.nothing_selected')}
+            </p>
+          ) : (
+            <LineChart
+              series={chartSeries}
+              ariaLabel={
+                metric === 'requests' ? t('insights.chart_requests') : t('insights.chart_success')
+              }
+              xLabel={xLabel}
+              xTicks={xTicks}
+              yFormat={(value) =>
+                metric === 'success' ? `${Math.round(value)}%` : formatCount(value)
+              }
+              valueFormat={(value) =>
+                metric === 'success' ? formatShare(value) : formatCount(value)
+              }
+              yMax={metric === 'success' ? 100 : undefined}
+              markers={failureMarkers}
+              extraRows={(index) =>
+                metric === 'success'
+                  ? [
+                      {
+                        label: t('insights.requests'),
+                        value: formatCount(combined[index].success + combined[index].failed),
+                      },
+                      { label: t('insights.failed'), value: formatCount(combined[index].failed) },
+                    ]
+                  : []
+              }
+            />
+          )}
+        </div>
+        <p className={styles.footnote}>
+          {metric === 'requests' ? t('insights.footnote_requests') : t('insights.footnote_success')}
+        </p>
+
+        <section className={styles.stats} aria-label={t('insights.stats')}>
+          <div className={styles.stat}>
+            <span className={styles.statLabel}>{t('insights.requests')}</span>
+            <span className={styles.statValue}>{formatCount(requests)}</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statLabel}>{t('insights.success_rate')}</span>
+            <span className={styles.statValue}>
+              {successRate === null ? DASH : formatShare(successRate)}
+            </span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statLabel}>{t('insights.failed')}</span>
+            <span className={styles.statValue}>{formatCount(totals.failed)}</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statLabel}>{t('insights.accounts_serving')}</span>
+            <span className={styles.statValue}>
+              {
+                visibleRows.filter(
+                  (row) => sumBuckets(row.buckets.slice(-range.buckets)).success > 0
+                ).length
+              }
+              <span className={styles.statOf}>
+                {' '}
+                {t('insights.of_total', { total: visibleRows.length })}
+              </span>
+            </span>
+          </div>
+        </section>
+
+        <div className={styles.columns}>
+          <section className={styles.panel}>
+            <div className={styles.panelHead}>
+              <h2 className={styles.panelTitle}>{t('insights.limits_title')}</h2>
+              <button
+                type="button"
+                className={styles.textButton}
+                onClick={readLimits}
+                disabled={batchLoading || !authFiles}
+              >
+                {batchLoading ? t('insights.reading') : t('insights.read_limits')}
+              </button>
+            </div>
+            <p className={styles.panelNote}>{t('insights.limits_note')}</p>
+            {limitRows.length === 0 ? (
+              <p className={styles.empty}>{t('insights.no_limits')}</p>
+            ) : (
+              <ul className={styles.limitList}>
+                {limitRows.map((row) => (
+                  <li key={row.key} className={styles.limitRow}>
+                    <AccountName row={row} />
+                    <LimitMeter
+                      label={t('insights.five_hour')}
+                      usedPercent={row.limits.fiveHour?.usedPercent ?? null}
+                      color={FAMILY_COLOR[row.family]}
+                      detail={limitDetail(row.limits.fiveHour)}
+                      emptyText={t('insights.not_reported')}
+                      warningText={t('insights.near_limit')}
+                    />
+                    <LimitMeter
+                      label={t('insights.weekly')}
+                      usedPercent={row.limits.weekly?.usedPercent ?? null}
+                      color={FAMILY_COLOR[row.family]}
+                      detail={limitDetail(row.limits.weekly)}
+                      emptyText={t('insights.not_reported')}
+                      warningText={t('insights.near_limit')}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.panelHead}>
+              <h2 className={styles.panelTitle}>{t('insights.served_title')}</h2>
+            </div>
+            <p className={styles.panelNote}>
+              {t('insights.served_note', { range: t(`insights.range_${range.id}_long`) })}
+            </p>
+            <ul className={styles.servedList}>
+              {servedRows.map(({ row, window }) => {
+                const total = window.success + window.failed;
+                return (
+                  <li key={row.key} className={styles.servedRow}>
+                    <AccountName row={row} />
+                    <div
+                      className={styles.servedBar}
+                      role="img"
+                      aria-label={t('insights.served_aria', {
+                        name: row.name,
+                        success: window.success,
+                        failed: window.failed,
+                      })}
+                    >
+                      {window.success > 0 && (
+                        <span
+                          className={styles.servedFill}
+                          style={{
+                            width: `${(window.success / servedPeak) * 100}%`,
+                            background: FAMILY_COLOR[row.family],
+                          }}
+                        />
+                      )}
+                      {window.failed > 0 && (
+                        <span
+                          className={styles.servedFill}
+                          style={{
+                            width: `${(window.failed / servedPeak) * 100}%`,
+                            background: 'var(--viz-failure)',
+                          }}
+                        />
+                      )}
+                    </div>
+                    <span className={styles.servedValue}>
+                      {formatCount(total)}
+                      {window.failed > 0 && (
+                        <span className={styles.servedFailed}>
+                          {t('insights.failed_count', { count: window.failed })}
+                        </span>
+                      )}
+                    </span>
+                    <span className={styles.servedSince}>
+                      {t('insights.since_start', {
+                        count: row.sinceStart.success + row.sinceStart.failed,
+                      })}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        </div>
+
+        <section className={styles.gateway} aria-label={t('insights.gateway')}>
+          <dl className={styles.facts}>
+            <div>
+              <dt>{t('insights.fact_version')}</dt>
+              <dd>{serverVersion?.trim() || DASH}</dd>
+            </div>
+            <div>
+              <dt>{t('insights.fact_routing')}</dt>
+              <dd>{routing}</dd>
+            </div>
+            <div>
+              <dt>{t('insights.fact_retry')}</dt>
+              <dd>{String(config?.requestRetry ?? DASH)}</dd>
+            </div>
+            <div>
+              <dt>{t('insights.fact_file_logs')}</dt>
+              <dd>{config?.loggingToFile ? t('insights.on') : t('insights.off')}</dd>
+            </div>
+          </dl>
+          <nav className={styles.links} aria-label={t('insights.shortcuts')}>
+            <Link to="/auth-files">{t('insights.link_accounts')}</Link>
+            <Link to="/oauth">{t('insights.link_sign_in')}</Link>
+            <Link to="/ai-providers">{t('insights.link_api_keys')}</Link>
+            <Link to="/quota">{t('insights.link_limits')}</Link>
+          </nav>
+        </section>
       </div>
 
-      {/* ---------- Hero ---------- */}
-      <section className={styles.hero} ref={heroRef}>
-        <div className={styles.heroCopy}>
-          <h1 className={styles.heroTitle} data-reveal>
-            {t(`dashboard.${verdict.key}`)}
-            <span
-              className={`${styles.heroPeriod} ${heroAlive ? styles.heroPeriodLive : ''}`}
-              style={{ color: verdict.accent }}
-            >
-              {t('dashboard.hero_period')}
-            </span>
-          </h1>
-          <p className={styles.heroMeta} data-reveal>
-            {heroMetaLine}
-          </p>
-          <div className={styles.heroActions} data-reveal>
-            <Link to="/ai-providers" className={styles.primaryAction}>
-              {t('dashboard.cta_manage_providers')}
-            </Link>
-            <Link to="/logs" className={styles.ghostAction}>
-              {t('dashboard.cta_inspect_logs')}{' '}
-              <span className={styles.linkArrow} aria-hidden="true">
-                →
-              </span>
-            </Link>
-          </div>
-        </div>
-
-        <div className={styles.heroPanel} data-reveal="scale">
-          <div className={styles.heroPanelTop}>
-            <span className={styles.heroPanelLabel}>{t('dashboard.hero_requests_label')}</span>
-            {connected && (
-              <span className={styles.liveBadge}>
-                <i className={styles.liveDot} aria-hidden="true" />
-                {t('dashboard.hero_live')}
-              </span>
-            )}
-          </div>
-          <strong className={styles.heroFigure}>
-            {connected ? formatHeadline(animatedTotal) : DASH}
-          </strong>
-          <span className={styles.heroPanelMeta}>
-            {t('dashboard.hero_window_meta', { window: windowLabel })}
-          </span>
-          {traffic.total > 0 && (
-            <div className={styles.ratioBar} aria-hidden="true">
-              {traffic.totalSuccess > 0 && (
-                <span
-                  className={`${styles.ratioSegment} ${styles.splitSuccess}`}
-                  style={{ flexGrow: traffic.totalSuccess }}
-                />
-              )}
-              {traffic.totalFailure > 0 && (
-                <span
-                  className={`${styles.ratioSegment} ${styles.splitFailure}`}
-                  style={{ flexGrow: traffic.totalFailure }}
-                />
-              )}
-            </div>
-          )}
-          <div className={styles.heroSplit}>
-            <span className={styles.heroSplitItem}>
-              <i className={`${styles.splitSwatch} ${styles.splitSuccess}`} aria-hidden="true" />
-              {t('stats.success')}
-              <b>{traffic.totalSuccess.toLocaleString()}</b>
-            </span>
-            <span className={styles.heroSplitItem}>
-              <i className={`${styles.splitSwatch} ${styles.splitFailure}`} aria-hidden="true" />
-              {t('stats.failure')}
-              <b>{traffic.totalFailure.toLocaleString()}</b>
-            </span>
-          </div>
-        </div>
-
-        <div className={styles.heroWire}>
-          <LiveWire
-            points={heroSparkPoints}
-            ariaLabel={t('dashboard.hero_spark_label', { window: windowLabel })}
-          />
-        </div>
-      </section>
-
-      {/* ---------- KPI ---------- */}
-      <section className={styles.statsRow} ref={statsRef} aria-label={t('dashboard.stats_aria')}>
-        {statTiles.map((tile) => (
-          <article
-            key={tile.key}
-            className={styles.statTile}
-            data-reveal
-            style={
-              {
-                '--tile-accent': tile.tone ? TILE_ACCENTS[tile.tone] : 'var(--border-hover)',
-              } as React.CSSProperties
-            }
+      <aside className={styles.sidebar} aria-label={t('insights.filters')}>
+        <div className={styles.sideHead}>
+          <h2 className={styles.sideTitle}>
+            {t('insights.providers')}
+            <span className={styles.sideCount}>{familiesPresent.length}</span>
+          </h2>
+          <button
+            type="button"
+            className={styles.resetButton}
+            onClick={() => {
+              setHiddenFamilies(new Set());
+              setHiddenAccounts(new Set());
+            }}
+            aria-label={t('insights.reset_filters')}
+            title={t('insights.reset_filters')}
           >
-            <span className={styles.statLabel}>{tile.label}</span>
-            <strong className={styles.statValue}>{tile.value}</strong>
-            {tile.meter !== null && tile.meter !== undefined && (
-              <Meter
-                value={tile.meter}
-                tone={tile.tone}
-                ariaLabel={tile.label}
-                className={styles.statMeter}
-              />
-            )}
-            <span className={styles.statHint}>{tile.hint}</span>
-          </article>
-        ))}
-      </section>
-
-      {/* ---------- Traffic ---------- */}
-      <section className={styles.section} ref={trafficRef}>
-        <header className={styles.sectionHead}>
-          <span className={styles.eyebrow}>{t('dashboard.traffic_eyebrow')}</span>
-          <h2 className={styles.sectionTitle}>{t('dashboard.traffic_title')}</h2>
-          <p className={styles.sectionDescription}>
-            {t('dashboard.traffic_description', { window: windowLabel })}
-          </p>
-        </header>
-        <div className={styles.panel}>
-          <ThroughputChart traffic={traffic} />
+            ↺
+          </button>
         </div>
-      </section>
-
-      {/* ---------- Provider fleet ---------- */}
-      <section className={styles.section} ref={fleetRef}>
-        <header className={styles.sectionHead}>
-          <span className={styles.eyebrow}>{t('dashboard.fleet_eyebrow')}</span>
-          <h2 className={styles.sectionTitle}>{t('dashboard.fleet_title')}</h2>
-          <p className={styles.sectionDescription}>{t('dashboard.fleet_description')}</p>
-        </header>
-        <div className={styles.panel}>
-          {providers.length === 0 ? (
-            <p className={styles.emptyNote}>{t('dashboard.fleet_empty')}</p>
-          ) : (
-            <ul className={styles.fleetList}>
-              {providers.map((provider, index) => (
-                <li key={provider.id} className={styles.fleetRow}>
-                  <span className={styles.fleetRank} aria-hidden="true">
-                    {String(index + 1).padStart(2, '0')}
+        <ul className={styles.checkList}>
+          {familiesPresent.map((family) => {
+            const total = allFamilySeries.find((item) => item.family === family)?.total ?? 0;
+            return (
+              <li key={family}>
+                <label className={styles.check}>
+                  <input
+                    type="checkbox"
+                    checked={!hiddenFamilies.has(family)}
+                    onChange={() => toggleFamily(family)}
+                  />
+                  <span className={styles.swatch} style={{ background: FAMILY_COLOR[family] }} />
+                  <span className={styles.checkName}>{familyName(family)}</span>
+                  <span className={styles.checkValue}>
+                    {grandTotal > 0 ? formatShare((total / grandTotal) * 100) : DASH}
                   </span>
-                  <div className={styles.fleetIdentity}>
-                    <span className={styles.fleetName}>
-                      {providerLabel(provider.id, unknownProviderLabel)}
-                    </span>
-                    <span className={styles.fleetMeta}>
-                      {t('dashboard.fleet_credentials', { value: provider.credentials })}
-                    </span>
-                  </div>
-                  <Sparkline
-                    points={provider.buckets.map((bucket) => bucket.success + bucket.failed)}
-                    ariaLabel={t('dashboard.fleet_spark_label', {
-                      provider: providerLabel(provider.id, unknownProviderLabel),
-                    })}
-                    className={styles.fleetSpark}
-                  />
-                  <div className={styles.fleetNumbers}>
-                    <span className={styles.fleetTotal}>{provider.total.toLocaleString()}</span>
-                    <span className={styles.fleetTotalLabel}>{t('dashboard.fleet_requests')}</span>
-                  </div>
-                  <div className={styles.fleetRate}>
-                    <span className={styles.fleetRateValue}>
-                      {provider.successRate === null ? DASH : formatPercent(provider.successRate)}
-                    </span>
-                    <Meter
-                      value={provider.successRate}
-                      ariaLabel={t('dashboard.success_rate')}
-                      className={styles.fleetMeter}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
 
-      {/* ---------- Credential health + runtime ---------- */}
-      <section className={styles.detailGrid} ref={detailRef}>
-        <div className={styles.panel} data-reveal>
-          <header className={styles.panelHead}>
-            <span className={styles.eyebrow}>{t('dashboard.health_eyebrow')}</span>
-            <h2 className={styles.panelTitle}>{t('dashboard.health_title')}</h2>
-          </header>
-          {!credentials || credentials.total === 0 ? (
-            <p className={styles.emptyNote}>{t('dashboard.health_empty')}</p>
-          ) : (
-            <>
-              <div className={styles.healthBar}>
-                {credentials.active > 0 && (
-                  <span
-                    className={`${styles.healthSegment} ${styles.healthActive}`}
-                    style={{ flexGrow: credentials.active }}
-                  />
-                )}
-                {credentials.unavailable > 0 && (
-                  <span
-                    className={`${styles.healthSegment} ${styles.healthUnavailable}`}
-                    style={{ flexGrow: credentials.unavailable }}
-                  />
-                )}
-                {credentials.disabled > 0 && (
-                  <span
-                    className={`${styles.healthSegment} ${styles.healthDisabled}`}
-                    style={{ flexGrow: credentials.disabled }}
-                  />
-                )}
-              </div>
-              <ul className={styles.healthLegend}>
-                <li>
-                  <i className={`${styles.healthKey} ${styles.healthActive}`} aria-hidden="true" />
-                  {t('dashboard.health_active')}
-                  <b>{credentials.active.toLocaleString()}</b>
-                </li>
-                <li>
-                  <i
-                    className={`${styles.healthKey} ${styles.healthUnavailable}`}
-                    aria-hidden="true"
-                  />
-                  {t('dashboard.health_unavailable')}
-                  <b>{credentials.unavailable.toLocaleString()}</b>
-                </li>
-                <li>
-                  <i
-                    className={`${styles.healthKey} ${styles.healthDisabled}`}
-                    aria-hidden="true"
-                  />
-                  {t('dashboard.health_disabled')}
-                  <b>{credentials.disabled.toLocaleString()}</b>
-                </li>
-              </ul>
-              <div className={styles.typeBreakdown}>
-                <span className={styles.typeBreakdownLabel}>{t('dashboard.health_by_type')}</span>
-                <ul className={styles.typeList}>
-                  {credentials.byType.map((entry) => (
-                    <li key={entry.type} className={styles.typeChip}>
-                      {providerLabel(entry.type, unknownProviderLabel)}
-                      <b>{entry.count.toLocaleString()}</b>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <Link to="/auth-files" className={styles.panelLink}>
-                {t('dashboard.health_link')}{' '}
-                <span className={styles.linkArrow} aria-hidden="true">
-                  →
-                </span>
-              </Link>
-            </>
-          )}
+        <div className={styles.sideHead}>
+          <h2 className={styles.sideTitle}>
+            {t('insights.accounts')}
+            <span className={styles.sideCount}>{rows.length}</span>
+          </h2>
+          <div className={styles.sideActions}>
+            <button type="button" onClick={() => setHiddenAccounts(new Set())}>
+              {t('insights.select_all')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setHiddenAccounts(new Set(rows.map((row) => row.key)))}
+            >
+              {t('insights.clear')}
+            </button>
+          </div>
         </div>
-
-        <div className={styles.panel} data-reveal>
-          <header className={styles.panelHead}>
-            <span className={styles.eyebrow}>{t('dashboard.runtime_eyebrow')}</span>
-            <h2 className={styles.panelTitle}>{t('dashboard.runtime_title')}</h2>
-          </header>
-          <dl className={styles.specList}>
-            {runtimeRows.map((row) => (
-              <div key={row.label} className={styles.specRow}>
-                <dt className={styles.specLabel}>{row.label}</dt>
-                <dd className={`${styles.specValue} ${row.mono ? styles.specMono : ''}`}>
-                  {row.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          {runtimeToggles.length > 0 && (
-            <ul className={styles.toggleList}>
-              {runtimeToggles.map((toggle) => (
-                <li
-                  key={toggle.label}
-                  className={`${styles.togglePill} ${toggle.on ? styles.toggleOn : styles.toggleOff}`}
+        <ul className={styles.checkList}>
+          {rows.map((row) => {
+            const window = sumBuckets(row.buckets.slice(-range.buckets));
+            return (
+              <li key={row.key}>
+                <label
+                  className={`${styles.check} ${hiddenFamilies.has(row.family) ? styles.checkMuted : ''}`}
                 >
-                  {toggle.label}
-                  <b>{toggle.on ? t('common.yes') : t('common.no')}</b>
-                </li>
-              ))}
-            </ul>
-          )}
-          <Link to="/config" className={styles.panelLink}>
-            {t('dashboard.runtime_link')}{' '}
-            <span className={styles.linkArrow} aria-hidden="true">
-              →
-            </span>
-          </Link>
-        </div>
-      </section>
+                  <input
+                    type="checkbox"
+                    checked={!hiddenAccounts.has(row.key)}
+                    onChange={() => toggleAccount(row.key)}
+                  />
+                  <span
+                    className={styles.swatch}
+                    style={{ background: FAMILY_COLOR[row.family] }}
+                  />
+                  <span className={styles.checkName} title={row.name}>
+                    {row.name}
+                  </span>
+                  <span className={styles.checkValue}>
+                    {formatCount(window.success + window.failed)}
+                  </span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
 
-      {/* ---------- CTA ---------- */}
-      <section className={styles.section} ref={ctaRef}>
-        <header className={styles.sectionHead} data-reveal>
-          <span className={styles.eyebrow}>{t('dashboard.cta_eyebrow')}</span>
-          <h2 className={styles.sectionTitle}>{t('dashboard.cta_title')}</h2>
-        </header>
-        <div className={styles.ctaGrid}>
-          {ctaCards.map((card) => (
-            <Link key={card.to} to={card.to} className={styles.ctaCard} data-reveal>
-              <span className={styles.ctaIcon}>{card.icon}</span>
-              <span className={styles.ctaTitle}>{card.title}</span>
-              <span className={styles.ctaDescription}>{card.description}</span>
-              <span className={styles.ctaArrow} aria-hidden="true">
-                →
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
+        <details className={styles.method}>
+          <summary>{t('insights.method_title')}</summary>
+          <p>{t('insights.method_buckets', { count: BUCKETS_PER_WINDOW })}</p>
+          <p>{t('insights.method_limits')}</p>
+          <p>{t('insights.method_missing')}</p>
+        </details>
+      </aside>
     </div>
+  );
+}
+
+function AccountName({ row }: { row: AccountRow }) {
+  const { t } = useTranslation();
+  return (
+    <span className={styles.accountName}>
+      <span className={styles.swatch} style={{ background: FAMILY_COLOR[row.family] }} />
+      <span className={styles.accountText} title={row.name}>
+        {row.name}
+      </span>
+      {row.disabled && <span className={styles.accountFlag}>{t('insights.disabled')}</span>}
+      {!row.disabled && row.unavailable && (
+        <span className={styles.accountFlag}>{t('insights.cooling_down')}</span>
+      )}
+    </span>
   );
 }

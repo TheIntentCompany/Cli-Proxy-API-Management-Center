@@ -8,7 +8,7 @@
 
 .label {
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-primary);
 }
 
@@ -22,7 +22,7 @@
   min-height: 64px;
   padding: 12px 14px;
   border: 1px dashed var(--border-primary);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--bg-secondary);
   text-align: left;
   transition:
@@ -68,7 +68,7 @@
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--bg-tertiary);
   color: var(--text-secondary);
 }
@@ -82,14 +82,14 @@
 
 .dropTitle {
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-primary);
 }
 
 .fileName {
   font-family: $font-mono;
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-primary);
   @include text-ellipsis;
 }
@@ -108,7 +108,7 @@
   :global(.input) {
     height: 36px;
     padding: 0 12px;
-    border-radius: 10px;
+    border-radius: 8px;
     font-family: $font-mono;
     font-size: 12.5px;
   }
@@ -127,7 +127,7 @@
 .facts {
   width: 100%;
   margin: 12px 0 0;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
   background: var(--bg-secondary);
   text-align: left;

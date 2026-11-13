@@ -23,7 +23,7 @@
 
   :global(.input) {
     height: 36px;
-    border-radius: 10px;
+    border-radius: 8px;
     font-size: 13px;
     /* 为右侧搜索图标留出空间，避免与占位符/输入文字重叠 */
     padding-right: 34px;
@@ -82,7 +82,7 @@
 
 .segmentActive {
   color: var(--text-primary);
-  font-weight: 650;
+  font-weight: 550;
   background: var(--floating-surface, var(--bg-primary));
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.12),
@@ -165,7 +165,7 @@
   gap: 10px;
   min-width: 216px;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
   background: var(--floating-surface);
   box-shadow: var(--floating-shadow);

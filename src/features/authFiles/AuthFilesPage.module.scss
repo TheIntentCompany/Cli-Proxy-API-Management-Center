@@ -31,22 +31,24 @@
   color: var(--danger-color);
   background: var(--bg-error-light);
   border: 1px solid var(--warning-border);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 9px 12px;
   overflow-wrap: anywhere;
 }
 
 /* ---------- 卡片网格 ---------- */
 
+/* Accounts read as one list: a row per account, separated by hairlines. */
 .grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .gridCompact {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* provider tab 激活（配额模式）时卡片承载配额区，需要更宽的列。

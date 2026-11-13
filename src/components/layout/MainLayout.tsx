@@ -98,7 +98,8 @@ const NAV_TOOLTIP_VIEWPORT_MARGIN = 8;
 
 interface SidebarNavGroup {
   id: string;
-  labelKey: string;
+  /** Groups without a label render as a plain run of items. */
+  labelKey?: string;
   items: SidebarNavItem[];
 }
 
@@ -596,29 +597,61 @@ export function MainLayout() {
     icon: sidebarIcons.quickStart,
   };
 
+  // The everyday pages sit at the top level. Gateway internals that are rarely touched
+  // live in one collapsed "More" drawer; every route stays reachable and keeps its URL.
+  const moreNavItems: SidebarNavLinkItem[] = [
+    {
+      path: '/routing',
+      labelKey: 'nav.routing',
+      metaKey: 'nav_meta.routing',
+      icon: sidebarIcons.routing,
+    },
+    {
+      path: '/logs',
+      labelKey: 'nav.logs',
+      metaKey: 'nav_meta.logs',
+      icon: sidebarIcons.logs,
+    },
+    {
+      path: '/config',
+      labelKey: 'nav.config_management',
+      metaKey: 'nav_meta.config_management',
+      icon: sidebarIcons.config,
+    },
+    ...(supportsPlugin
+      ? [
+          {
+            path: '/plugins',
+            labelKey: 'nav.plugins',
+            metaKey: 'nav_meta.plugins',
+            icon: sidebarIcons.plugins,
+          },
+          {
+            path: '/plugin-store',
+            labelKey: 'nav.plugin_store',
+            metaKey: 'nav_meta.plugin_store',
+            icon: sidebarIcons.pluginStore,
+          },
+        ]
+      : []),
+    quickStartNavItem,
+    {
+      path: '/system',
+      labelKey: 'nav.system_info',
+      metaKey: 'nav_meta.system_info',
+      icon: sidebarIcons.system,
+    },
+  ];
+
   const navGroups: SidebarNavGroup[] = [
     {
-      id: 'operate',
-      labelKey: 'nav_groups.operate',
+      id: 'gateway',
       items: [
         {
           path: '/',
           labelKey: 'nav.dashboard',
           metaKey: 'nav_meta.dashboard',
           icon: sidebarIcons.dashboard,
-        },
-        ...(!isApiKeyFunConfigured ? [quickStartNavItem] : []),
-      ],
-    },
-    {
-      id: 'gateway',
-      labelKey: 'nav_groups.gateway',
-      items: [
-        {
-          path: '/ai-providers',
-          labelKey: 'nav.ai_providers',
-          metaKey: 'nav_meta.ai_providers',
-          icon: sidebarIcons.aiProviders,
         },
         {
           path: '/auth-files',
@@ -638,63 +671,29 @@ export function MainLayout() {
           icon: sidebarIcons.oauth,
         },
         {
-          path: '/routing',
-          labelKey: 'nav.routing',
-          metaKey: 'nav_meta.routing',
-          icon: sidebarIcons.routing,
+          path: '/ai-providers',
+          labelKey: 'nav.ai_providers',
+          metaKey: 'nav_meta.ai_providers',
+          icon: sidebarIcons.aiProviders,
         },
-        ...(isApiKeyFunConfigured ? [quickStartNavItem] : []),
-      ],
-    },
-    {
-      id: 'observe',
-      labelKey: 'nav_groups.observe',
-      items: [
         {
           path: '/quota',
           labelKey: 'nav.quota_management',
           metaKey: 'nav_meta.quota_management',
           icon: sidebarIcons.quota,
         },
-        {
-          path: '/logs',
-          labelKey: 'nav.logs',
-          metaKey: 'nav_meta.logs',
-          icon: sidebarIcons.logs,
-        },
       ],
     },
     {
-      id: 'control',
-      labelKey: 'nav_groups.control',
+      id: 'more',
       items: [
         {
-          path: '/config',
-          labelKey: 'nav.config_management',
-          metaKey: 'nav_meta.config_management',
+          kind: 'drawer',
+          id: 'nav-more',
+          label: t('nav.more'),
+          meta: t('nav_meta.more'),
           icon: sidebarIcons.config,
-        },
-        ...(supportsPlugin
-          ? [
-              {
-                path: '/plugins',
-                labelKey: 'nav.plugins',
-                metaKey: 'nav_meta.plugins',
-                icon: sidebarIcons.plugins,
-              },
-              {
-                path: '/plugin-store',
-                labelKey: 'nav.plugin_store',
-                metaKey: 'nav_meta.plugin_store',
-                icon: sidebarIcons.pluginStore,
-              },
-            ]
-          : []),
-        {
-          path: '/system',
-          labelKey: 'nav.system_info',
-          metaKey: 'nav_meta.system_info',
-          icon: sidebarIcons.system,
+          children: moreNavItems,
         },
       ],
     },
@@ -1175,11 +1174,9 @@ export function MainLayout() {
           <div className="nav-section">
             {navGroups.map((group, idx) => (
               <div className="nav-group" key={group.id}>
-                {showSidebarLabels ? (
-                  <div className="nav-group-label">{t(group.labelKey)}</div>
-                ) : (
-                  idx > 0 && <div className="nav-group-divider" aria-hidden="true" />
-                )}
+                {showSidebarLabels
+                  ? group.labelKey && <div className="nav-group-label">{t(group.labelKey)}</div>
+                  : idx > 0 && <div className="nav-group-divider" aria-hidden="true" />}
                 {group.items.map((item) => renderNavItem(item))}
               </div>
             ))}

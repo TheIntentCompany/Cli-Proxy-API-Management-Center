@@ -25,6 +25,7 @@ import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaCard } from './components/QuotaCard';
+import { QuotaRow } from './components/QuotaRow';
 import { QuotaTimeline } from './components/QuotaTimeline';
 import {
   CARD_ENTRANCE_BUDGET_MS,
@@ -58,13 +59,13 @@ import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './QuotaPage.module.scss';
 
 const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
-const SKELETON_CARD_COUNT = 6;
+const SKELETON_ROW_COUNT = 5;
 
-/**
- * Existing providers display filenames; Devin's card and timeline share an
- * identity-aware display label. Keep the filename fallback stable for memoization.
- */
+/** Devin's rows and timeline share an identity-aware label; others use the filename. */
 const displayNameFor = (name: string) => name;
+
+/** Claude and Codex render as rows; other providers keep their full-width card body. */
+const usesRowLayout = (entry: QuotaFileEntry) => entry.type === 'claude' || entry.type === 'codex';
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -178,6 +179,11 @@ export function QuotaPage() {
 
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
   const tabCounts = useMemo(() => buildTabCounts(entries), [entries]);
+  // Only show providers that have accounts; empty tabs were most of the old clutter.
+  const visibleTabIds = useMemo(
+    () => TAB_IDS.filter((id) => id === 'all' || id === tab || (tabCounts[id] ?? 0) > 0),
+    [tabCounts, tab]
+  );
   // Account-level settings span every page and tab, so count over all entries.
   const codexCreditOverageCounts = useMemo(
     () =>
@@ -350,7 +356,7 @@ export function QuotaPage() {
         {/* 提供商导航与搜索工具栏分层，避免不同控件争夺视觉焦点。 */}
         <div className={styles.tabsRow} data-reveal>
           <ProviderTabs
-            types={TAB_IDS}
+            types={visibleTabIds}
             counts={tabCounts}
             active={tab}
             resolvedTheme={resolvedTheme}
@@ -403,9 +409,9 @@ export function QuotaPage() {
         )}
 
         {loading ? (
-          <div className={styles.grid} aria-hidden="true">
-            {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
-              <Skeleton key={index} height={168} rounded={14} />
+          <div className={styles.skeletonList} aria-hidden="true">
+            {Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
+              <Skeleton key={index} height={64} rounded={4} />
             ))}
           </div>
         ) : isEmpty ? (
@@ -437,25 +443,42 @@ export function QuotaPage() {
             }
           />
         ) : (
-          <div className={styles.grid}>
-            {pageItems.map((entry, index) => (
-              <QuotaCard
-                key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
-                entry={entry}
-                quota={getQuota(entry)}
-                resolvedTheme={resolvedTheme}
-                canRefresh={canUseActions && !entry.file.disabled}
-                resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
-                entranceDelayMs={cardEntranceDelay(index)}
-                creditOverageSharedCount={
-                  entry.type === 'codex'
-                    ? codexCreditOverageCounts.get(codexCreditOverageKey(entry.file) ?? '')
-                    : undefined
-                }
-                onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-                onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-              />
-            ))}
+          <div className={styles.table}>
+            <div className={styles.columns} aria-hidden="true">
+              <span>{t('limits.col_account')}</span>
+              <span>{t('limits.col_five_hour')}</span>
+              <span>{t('limits.col_weekly')}</span>
+              <span>{t('limits.col_models')}</span>
+              <span />
+            </div>
+            <ul className={styles.list}>
+              {pageItems.map((entry, index) => {
+                const key = `${entry.type}:${getQuotaCacheKey(entry.file)}`;
+                const shared = {
+                  entry,
+                  quota: getQuota(entry),
+                  canRefresh: canUseActions && !entry.file.disabled,
+                  resetting: resettingQuotaName === getQuotaCacheKey(entry.file),
+                  creditOverageSharedCount:
+                    entry.type === 'codex'
+                      ? codexCreditOverageCounts.get(codexCreditOverageKey(entry.file) ?? '')
+                      : undefined,
+                  onRefresh: () => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type]),
+                  onReset: () => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type]),
+                };
+                return usesRowLayout(entry) ? (
+                  <QuotaRow key={key} {...shared} />
+                ) : (
+                  <li key={key} className={styles.cardItem}>
+                    <QuotaCard
+                      {...shared}
+                      resolvedTheme={resolvedTheme}
+                      entranceDelayMs={cardEntranceDelay(index)}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
 
@@ -487,13 +510,18 @@ export function QuotaPage() {
           </div>
         )}
 
-        {/* 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。 */}
-        <QuotaTimeline
-          entries={pageItems}
-          quotaFor={getQuota}
-          displayNameFor={displayNameFor}
-          resolvedTheme={resolvedTheme}
-        />
+        <p className={styles.footnote}>{t('limits.footnote')}</p>
+
+        {/* The reset timeline is secondary; it stays one click away instead of under every list. */}
+        <details className={styles.timeline}>
+          <summary>{t('limits.timeline')}</summary>
+          <QuotaTimeline
+            entries={pageItems}
+            quotaFor={getQuota}
+            displayNameFor={displayNameFor}
+            resolvedTheme={resolvedTheme}
+          />
+        </details>
       </section>
     </div>
   );

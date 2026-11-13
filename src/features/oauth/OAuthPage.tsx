@@ -30,6 +30,7 @@ import styles from './OAuthPage.module.scss';
 /** 对话框焦点标识：Vertex 不是 OAuth 提供商，用保留 id 避免与提供商冲突。 */
 const VERTEX_DIALOG_ID = '__vertex__';
 const VERTEX_LABEL = 'Vertex AI';
+const PRIMARY_PROVIDER_IDS: string[] = ['anthropic', 'codex'];
 
 type DialogTarget = { kind: 'oauth'; id: string } | { kind: 'vertex' };
 
@@ -46,6 +47,7 @@ export function OAuthPage() {
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const revealRef = useRevealGroup<HTMLDivElement>();
   const otherMethodsId = useId();
+  const otherProvidersId = useId();
 
   const pluginProviders = usePluginOAuthProviders(apiBase);
   const providerCards = useMemo<OAuthProviderCard[]>(
@@ -142,6 +144,11 @@ export function OAuthPage() {
   const providerCount = providerCards.length;
   const sponsorCards = providerCards.filter(isSponsor);
   const regularCards = providerCards.filter((card) => !isSponsor(card));
+  // Claude and Codex are what this gateway runs on, so they lead; the rest follow.
+  const primaryCards = PRIMARY_PROVIDER_IDS.map((id) =>
+    regularCards.find((card) => card.id === id)
+  ).filter((card): card is OAuthProviderCard => card !== undefined);
+  const otherCards = regularCards.filter((card) => !PRIMARY_PROVIDER_IDS.includes(card.id));
   // 赞助商卡占级联的第 0 位，其余磁贴顺延
   const tileIndexOffset = sponsorCards.length > 0 ? 1 : 0;
 
@@ -185,21 +192,30 @@ export function OAuthPage() {
         addedCount={flows.addedCount}
       />
 
-      {/* 赞助商独占首行：一张品牌卡收拢两站入口，其余提供商在下方紧凑网格 */}
-      {sponsorCards.length > 0 && (
-        <SponsorCard
-          title={KIMI_DISPLAY_NAME}
-          caption={t('auth_login.sponsor_kimi_caption')}
-          icon={iconOf(sponsorCards[0])}
-          signUpLabel={t('auth_login.sponsor_sign_up')}
-          sites={sponsorSites}
-          onOpen={(siteId) => {
-            const card = sponsorCards.find((sponsor) => sponsor.id === siteId);
-            if (card) openProvider(card);
-          }}
-        />
-      )}
-      <div className={styles.grid}>{regularCards.map(renderTile)}</div>
+      <div className={styles.grid}>{primaryCards.map(renderTile)}</div>
+
+      <section className={styles.section} aria-labelledby={otherProvidersId}>
+        <h2 className={styles.sectionLabel} id={otherProvidersId} data-reveal>
+          {t('auth_login.other_providers')}
+        </h2>
+        <div className={styles.grid}>
+          {otherCards.map((card, index) => renderTile(card, index + primaryCards.length))}
+        </div>
+        {/* One brand card holds both Kimi sites. */}
+        {sponsorCards.length > 0 && (
+          <SponsorCard
+            title={KIMI_DISPLAY_NAME}
+            caption={t('auth_login.sponsor_kimi_caption')}
+            icon={iconOf(sponsorCards[0])}
+            signUpLabel={t('auth_login.sponsor_sign_up')}
+            sites={sponsorSites}
+            onOpen={(siteId) => {
+              const card = sponsorCards.find((sponsor) => sponsor.id === siteId);
+              if (card) openProvider(card);
+            }}
+          />
+        )}
+      </section>
 
       <section className={styles.section} aria-labelledby={otherMethodsId}>
         <h2 className={styles.sectionLabel} id={otherMethodsId} data-reveal>

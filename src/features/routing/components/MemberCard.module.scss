@@ -12,7 +12,7 @@
   height: 48px;
   padding: 0 6px 0 2px;
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--bg-secondary);
   color: var(--text-primary);
   cursor: grab;
@@ -97,7 +97,7 @@
   background: var(--bg-primary);
   overflow: hidden;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 550;
   color: var(--text-secondary);
 
   img {
@@ -118,7 +118,7 @@
 .name {
   @include text-ellipsis;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 550;
   line-height: 1.2;
 }
 
@@ -137,7 +137,7 @@
   flex-shrink: 0;
   font-family: $font-mono;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
   color: var(--viz-success);
 }
@@ -201,7 +201,7 @@
   max-width: 240px;
   padding: 4px;
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--floating-surface);
   box-shadow: var(--floating-shadow);
   cursor: default;

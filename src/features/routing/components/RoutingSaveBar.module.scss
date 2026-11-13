@@ -26,7 +26,7 @@
   gap: 8px 12px;
   min-width: 0;
   padding: 10px 10px 10px 16px;
-  border-radius: 16px;
+  border-radius: 8px;
   --glass-blur: 14px;
   border: 1px solid var(--glass-border);
   background: var(--glass-bg);
@@ -42,7 +42,7 @@
   min-width: 0;
   font-family: $font-mono;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
   color: var(--amber-text);
   overflow-wrap: anywhere;
@@ -66,7 +66,7 @@
   background: var(--text-primary);
   color: var(--bg-secondary);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 550;
   line-height: 1;
   cursor: pointer;
   transition:
@@ -123,7 +123,7 @@
 @media (hover: hover) and (pointer: fine) {
   .savePill:hover:not(:disabled) {
     background: color-mix(in srgb, var(--text-primary) 86%, var(--bg-secondary));
-    box-shadow: 0 12px 26px color-mix(in srgb, var(--text-primary) 22%, transparent);
+    box-shadow: none;
   }
 
   .ghostAction:hover:not(:disabled) {

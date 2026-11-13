@@ -8,10 +8,15 @@
   gap: $spacing-sm;
   border: 1px solid transparent;
   border-radius: $radius-md;
-  padding: 10px 14px;
-  font-weight: 600;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  transition: all $transition-fast;
+  transition:
+    background-color $transition-fast,
+    border-color $transition-fast,
+    color $transition-fast;
   background-color: var(--bg-secondary);
   color: var(--text-primary);
 
@@ -73,14 +78,33 @@
   }
 }
 
+// Dark build: the primary action is white on black; secondary actions are hairline outlines.
 [data-theme='dark'] {
   .btn {
-    color: #fff;
+    color: var(--text-primary);
   }
 
-  .btn.btn-secondary,
+  .btn.btn-primary {
+    color: var(--primary-contrast);
+  }
+
+  .btn.btn-secondary {
+    background-color: transparent;
+    border-color: var(--border-primary);
+    color: var(--text-primary);
+
+    &:hover {
+      background-color: var(--bg-tertiary);
+      border-color: var(--border-hover);
+    }
+  }
+
   .btn.btn-ghost {
-    color: #fff;
+    color: var(--text-secondary);
+
+    &:hover {
+      color: var(--text-primary);
+    }
   }
 }
 
@@ -98,8 +122,8 @@ textarea {
 
   &:focus {
     outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba($primary-color, 0.18);
+    border-color: var(--border-hover);
+    box-shadow: 0 0 0 3px var(--primary-8);
   }
 }
 
@@ -110,7 +134,7 @@ textarea {
   margin-bottom: $spacing-md;
 
   label {
-    font-weight: 600;
+    font-weight: 550;
     color: var(--text-primary);
   }
 
@@ -128,6 +152,10 @@ textarea {
   padding: $spacing-lg;
 }
 
+[data-theme='dark'] .card {
+  background-color: var(--bg-secondary);
+}
+
 .card-header {
   display: flex;
   align-items: center;
@@ -143,8 +171,9 @@ textarea {
   .title {
     flex: 1 1 auto;
     min-width: 0;
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 16px;
+    font-weight: 550;
+    letter-spacing: -0.01em;
     color: var(--text-primary);
   }
 }
@@ -225,7 +254,7 @@ textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -274,7 +303,7 @@ textarea {
   transform-origin: calc(100% - 28px) 28px;
 
   &.modal-entering {
-    animation: modal-scale-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: modal-scale-in 0.22s var(--ease-out-strong) forwards;
   }
 
   &.modal-closing {
@@ -285,7 +314,7 @@ textarea {
 @keyframes modal-scale-in {
   from {
     opacity: 0;
-    transform: scale(0.85) translateY(20px);
+    transform: scale(0.97) translateY(6px);
   }
   to {
     opacity: 1;
@@ -332,11 +361,6 @@ textarea {
   &:hover {
     color: var(--text-primary);
     background: var(--bg-tertiary);
-    transform: scale(1.1);
-  }
-
-  &:active {
-    transform: scale(0.95);
   }
 
   &:disabled {
@@ -359,8 +383,8 @@ textarea {
   border-bottom: 1px solid var(--border-color);
 
   .modal-title {
-    font-weight: 700;
-    font-size: 18px;
+    font-weight: 550;
+    font-size: 16px;
     color: var(--text-primary);
   }
 }
@@ -471,7 +495,7 @@ textarea {
   }
 
   .empty-title {
-    font-weight: 700;
+    font-weight: 550;
     color: var(--text-primary);
   }
 
@@ -518,7 +542,7 @@ textarea {
   }
 
   .item-title {
-    font-weight: 700;
+    font-weight: 550;
     color: var(--text-primary);
   }
 

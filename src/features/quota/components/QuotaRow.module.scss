@@ -1,0 +1,204 @@
+/* One account per row: identity · 5-hour · weekly · model limits · action, then one facts line. */
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.15fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(
+      150px,
+      1.2fr
+    ) 92px;
+  grid-template-areas:
+    'account five week others actions'
+    '. facts facts facts facts';
+  column-gap: 28px;
+  row-gap: 10px;
+  align-items: start;
+  padding: 16px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.account {
+  grid-area: account;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.swatch {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 2px;
+}
+
+.accountText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.others {
+  grid-area: others;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.none {
+  color: var(--text-quaternary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.actions {
+  grid-area: actions;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.readButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--dur-hover) var(--ease-out-strong),
+    border-color var(--dur-hover) var(--ease-out-strong);
+
+  &:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--border-hover);
+    outline-offset: 2px;
+  }
+}
+
+.spinning {
+  animation: quota-row-spin 0.8s linear infinite;
+}
+
+@keyframes quota-row-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}
+
+.facts {
+  grid-area: facts;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 0;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+/* Facts read as one sentence-like line separated by middots. */
+.fact,
+.facts > .link,
+.facts > .muted,
+.facts > .error {
+  &:not(:first-child)::before {
+    content: '·';
+    margin: 0 9px;
+    color: var(--text-quaternary);
+  }
+}
+
+.plan {
+  color: var(--text-primary);
+}
+
+.muted {
+  color: var(--text-tertiary);
+}
+
+.error {
+  color: var(--warning-text);
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--border-hover);
+  text-underline-offset: 3px;
+
+  &:hover:not(:disabled) {
+    text-decoration-color: var(--text-secondary);
+  }
+
+  &:disabled {
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+  }
+}
+
+@media (max-width: 1100px) {
+  .row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      'account actions'
+      'five week'
+      'others others'
+      'facts facts';
+  }
+}
+
+@media (max-width: 640px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'account'
+      'five'
+      'week'
+      'others'
+      'facts'
+      'actions';
+  }
+
+  .actions {
+    justify-content: flex-start;
+  }
+}

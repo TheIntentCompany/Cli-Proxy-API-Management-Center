@@ -18,7 +18,7 @@
 
   .sectionTitle {
     font-size: 17px;
-    font-weight: 700;
+    font-weight: 550;
     line-height: 1.35;
     letter-spacing: 0;
   }
@@ -36,7 +36,7 @@
 
   .label {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 550;
     line-height: 1.45;
   }
 
@@ -67,7 +67,7 @@
 
     strong {
       font-size: 14px;
-      font-weight: 650;
+      font-weight: 550;
       line-height: 1.4;
     }
   }
@@ -93,7 +93,7 @@
 
   .sponsorProtocolName {
     font-size: 13px;
-    font-weight: 650;
+    font-weight: 550;
     line-height: 1.4;
   }
 
@@ -114,19 +114,19 @@
   .addBtn,
   .removeBtn {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 550;
     line-height: 1;
   }
 
   .footerBtn {
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 550;
     line-height: 1;
   }
 
   details summary {
     font-size: 14px;
-    font-weight: 650;
+    font-weight: 550;
     line-height: 1.45;
   }
 }
@@ -140,7 +140,7 @@
 
 .sectionTitle {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-primary);
   margin: 0;
   display: flex;
@@ -206,7 +206,7 @@
   height: auto;
   min-height: 80px;
   resize: vertical;
-  font-family: $font-mono;
+  font-family: $font-code;
   line-height: 1.5;
 }
 
@@ -556,7 +556,7 @@
 
 .sponsorProtocolName {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-primary);
 }
 
@@ -1187,7 +1187,7 @@
 
 .apiKeyEntriesLabel {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-secondary);
   margin-bottom: 6px;
 }
@@ -1224,13 +1224,13 @@
   background: var(--primary-color);
   color: var(--primary-contrast);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 550;
   flex-shrink: 0;
 }
 
 .apiKeyEntryKey {
   font-family: 'Monaco', 'Menlo', 'Consolas', 'Ubuntu Mono', monospace;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-primary);
   min-width: 0;
   max-width: 100%;
@@ -1263,9 +1263,9 @@
   align-items: center;
   gap: 3px;
   padding: 2px 6px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 550;
 
   svg {
     display: block;

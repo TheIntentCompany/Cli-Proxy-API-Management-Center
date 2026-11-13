@@ -22,7 +22,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
   background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent);
   color: var(--text-secondary);
@@ -37,7 +37,7 @@
 .name {
   margin: 0;
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 550;
   color: var(--text-primary);
   overflow-wrap: anywhere;
 }
@@ -105,7 +105,7 @@
   border: 1px solid color-mix(in srgb, var(--quota-medium-color, #e0aa14) 45%, var(--border-color));
   background: color-mix(in srgb, var(--quota-medium-color, #e0aa14) 16%, var(--bg-secondary));
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: 550;
   font-size: 14px;
   line-height: 1.4;
 
@@ -156,7 +156,7 @@
   margin: 0;
   font-size: 13.5px;
   line-height: 1.5;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--danger-color);
 }
 
@@ -168,7 +168,7 @@
 
   dt {
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 550;
     color: var(--text-secondary);
   }
 
@@ -190,7 +190,7 @@
   display: block;
   margin-bottom: $spacing-sm;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-primary);
   line-height: 1.5;
   overflow-wrap: anywhere;

@@ -20,11 +20,11 @@ export const TYPE_COLORS: Record<string, TypeColorSet> = {
   },
   claude: {
     light: { bg: '#fbece4', text: '#c05621' },
-    dark: { bg: '#5e2c14', text: '#e8a882' },
+    dark: { bg: '#3a2219', text: '#e0896a' },
   },
   codex: {
-    light: { bg: '#eae7ff', text: '#3538d4' },
-    dark: { bg: '#262395', text: '#b5b0ff' },
+    light: { bg: '#ececec', text: '#1a1a1a' },
+    dark: { bg: '#262626', text: '#ededed' },
   },
   devin: {
     light: { bg: '#e8f4ff', text: '#155e9b' },

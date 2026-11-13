@@ -52,9 +52,9 @@
   flex: 0 1 340px;
   min-width: 0;
   height: 36px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: transparent;
   color: var(--text-secondary);
 
   &:focus-within {
@@ -127,7 +127,7 @@
   button[aria-haspopup='listbox'] {
     height: 36px;
     border-color: transparent;
-    border-radius: 10px;
+    border-radius: 8px;
     background: transparent;
     box-shadow: none;
     color: var(--text-secondary);
@@ -178,7 +178,7 @@
   color: var(--danger-color);
   background: var(--bg-error-light);
   border: 1px solid var(--warning-border);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 9px 12px;
   overflow-wrap: anywhere;
 }
@@ -187,11 +187,52 @@
  * 列宽由 CSS 决定（不再用 JS 测量）：额度卡承载水位条，取 340px 下限，
  * 与认证文件页配额模式（.gridQuota）同一档。 */
 
-.grid {
+/* ---------- Account list ----------
+ * Same columns as QuotaRow so the header labels sit over their meters. */
+
+.table {
+  min-width: 0;
+}
+
+.columns {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-  align-items: stretch;
+  grid-template-columns: minmax(180px, 1.15fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(
+      150px,
+      1.2fr
+    ) 92px;
+  column-gap: 28px;
+  padding: 0 0 8px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.cardItem {
+  padding: 16px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.footnote {
+  margin: 4px 0 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+@media (max-width: 1100px) {
+  .columns {
+    display: none;
+  }
 }
 
 /* ---------- 分页 ---------- */
@@ -216,5 +257,25 @@
 @include mobile {
   .page {
     gap: 16px;
+  }
+}
+
+.timeline {
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+
+  summary {
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--text-primary);
+    }
+  }
+
+  &[open] summary {
+    margin-bottom: 14px;
   }
 }

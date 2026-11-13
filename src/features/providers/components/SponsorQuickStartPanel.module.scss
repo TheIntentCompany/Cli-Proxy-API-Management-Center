@@ -4,7 +4,7 @@
 .panel {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: var(--shadow);
   padding: 20px;
   min-width: 0;
@@ -33,7 +33,7 @@
   background: transparent;
   color: var(--muted-foreground);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 550;
   line-height: 1;
   text-decoration: none;
   overflow-wrap: anywhere;
@@ -83,7 +83,7 @@
   margin: 0;
   color: var(--text-primary);
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 550;
   line-height: 1.22;
   letter-spacing: 0;
 }
@@ -154,7 +154,7 @@
   border-color: var(--primary-color);
   background: var(--primary-color);
   color: var(--primary-contrast);
-  font-weight: 600;
+  font-weight: 550;
 
   &:hover:not(:disabled) {
     border-color: var(--primary-hover);
@@ -170,7 +170,7 @@
   color: var(--amber-text);
   border-color: color-mix(in srgb, var(--amber-color) 48%, var(--border-color));
   background: color-mix(in srgb, var(--amber-color) 14%, var(--bg-primary));
-  font-weight: 600;
+  font-weight: 550;
   box-shadow: 0 1px 0 color-mix(in srgb, var(--amber-color) 18%, transparent);
 
   &:hover {
@@ -187,7 +187,7 @@
 .primaryAction {
   height: 38px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 550;
   line-height: 1;
 }
 

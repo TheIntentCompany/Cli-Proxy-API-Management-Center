@@ -9,22 +9,68 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 14px;
-  border: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
-  transition: border-color 160ms var(--ease-out-strong, ease-out);
+  gap: 10px;
+  padding: 16px 2px;
+  border-radius: 0;
+  border: 0;
+  border-top: 1px solid var(--border-color);
+  background: transparent;
+  transition: background-color 160ms var(--ease-out-strong, ease-out);
+}
+
+/* Wide screens: identity | recent requests | actions on one row; anything else
+ * (notes, warnings, cooldowns, SIWC) spans the full width underneath. */
+@media (min-width: 1100px) {
+  .card {
+    display: grid;
+    grid-template-columns: minmax(260px, 1.5fr) minmax(220px, 1fr) auto;
+    column-gap: 36px;
+    row-gap: 6px;
+    align-items: center;
+
+    > * {
+      grid-column: 1 / -1;
+    }
+
+    > .head {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    > .fileName {
+      grid-column: 1;
+      grid-row: 2;
+      margin: 0;
+    }
+
+    > .metaRow {
+      grid-column: 1;
+      grid-row: 3;
+    }
+
+    > .health {
+      grid-column: 2;
+      grid-row: 1 / span 3;
+    }
+
+    > .actions {
+      grid-column: 3;
+      grid-row: 1 / span 3;
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+  }
 }
 
 @media (hover: hover) and (pointer: fine) {
   .card:hover {
-    border-color: var(--border-hover);
+    background: var(--bg-primary);
   }
 }
 
 .cardDisabled {
-  background: color-mix(in srgb, var(--bg-primary) 55%, var(--bg-tertiary));
+  background: transparent;
 }
 
 .cardDisabled > :not(.actions) {
@@ -37,8 +83,8 @@
 }
 
 .cardSelected {
-  border-color: color-mix(in srgb, var(--primary-color) 55%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 40%, transparent);
+  background: var(--primary-8);
+  box-shadow: inset 2px 0 0 var(--accent-color, var(--primary-color));
 }
 
 /* 首次数据到达时的一次性级联入场；过滤/翻页/轮询不重播 */
@@ -75,7 +121,7 @@
   min-width: 0;
   margin: 0;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 550;
   line-height: 1.6;
 }
 
@@ -84,11 +130,17 @@
   flex-shrink: 0;
   max-width: 100%;
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 550;
   line-height: 1.3;
   overflow-wrap: anywhere;
+}
+
+.providerText {
+  padding: 2px 0;
+  border-radius: 0;
+  font-weight: 500;
 }
 
 .runtimeLabel {
@@ -177,7 +229,7 @@
 .healthLabel {
   font-family: $font-mono;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 550;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-tertiary);
@@ -189,7 +241,7 @@
   gap: 8px;
   font-family: $font-mono;
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
 }
 
@@ -248,7 +300,7 @@
 .statusRate {
   font-family: $font-mono;
   font-size: 11.5px;
-  font-weight: 650;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
   color: var(--text-quaternary);
   min-width: 40px;
@@ -278,7 +330,7 @@
   gap: 2px;
   min-width: 150px;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--floating-surface);
   border: 1px solid var(--border-color);
   box-shadow: var(--floating-shadow);
@@ -349,7 +401,7 @@
   padding: 2px 6px;
   border: 1px solid transparent;
   border-radius: $radius-full;
-  font-weight: 650;
+  font-weight: 550;
   line-height: 1.35;
   white-space: nowrap;
 }
@@ -368,7 +420,7 @@
 
 .metaMetricLabel {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 550;
   color: currentColor;
   opacity: 0.78;
 }

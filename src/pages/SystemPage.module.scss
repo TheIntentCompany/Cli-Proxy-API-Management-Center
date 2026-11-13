@@ -3,8 +3,8 @@
 }
 
 .pageTitle {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 550;
   color: var(--text-primary);
   margin: 0 0 $spacing-xl 0;
 }
@@ -40,7 +40,7 @@
 .aboutTitle {
   width: min(100%, 920px);
   font-size: clamp(28px, 4.2vw, 44px);
-  font-weight: 800;
+  font-weight: 550;
   line-height: 1.12;
   color: var(--text-primary);
   letter-spacing: -0.02em;
@@ -84,7 +84,7 @@
     box-shadow 0.2s ease;
 
   &:hover {
-    transform: translateY(-1px);
+    transform: none;
     border-color: var(--primary-color);
     box-shadow: 0 8px 18px rgba($primary-color, 0.18);
   }
@@ -96,7 +96,7 @@
 
 .tileLabel {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-secondary);
 }
 
@@ -116,7 +116,7 @@
 
 .tileValue {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 550;
   color: var(--text-primary);
   line-height: 1.25;
   word-break: break-word;
@@ -136,7 +136,7 @@
 
 .sectionTitle {
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-primary);
   margin: 0 0 $spacing-md 0;
 }
@@ -230,7 +230,7 @@
 
 .modelName {
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: 550;
 }
 
 .modelAlias {
@@ -262,7 +262,7 @@
 
     .version {
       font-size: 16px;
-      font-weight: 600;
+      font-weight: 550;
       color: var(--text-primary);
       font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     }
@@ -326,7 +326,7 @@
   align-items: center;
   gap: $spacing-xs;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--text-primary);
   margin-bottom: 2px;
 
@@ -354,7 +354,7 @@
   .aboutTitle {
     width: min(100%, 24ch);
     font-size: clamp(22px, 6.6vw, 34px);
-    font-weight: 700;
+    font-weight: 550;
     line-height: 1.18;
     letter-spacing: -0.012em;
   }
@@ -364,7 +364,7 @@
   .aboutTitle {
     width: min(100%, 19ch);
     font-size: clamp(20px, 7.2vw, 28px);
-    font-weight: 600;
+    font-weight: 550;
     line-height: 1.22;
     letter-spacing: -0.006em;
   }

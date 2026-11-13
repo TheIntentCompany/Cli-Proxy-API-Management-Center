@@ -4,6 +4,7 @@
 
 @use './variables.scss' as *;
 @use './mixins.scss' as *;
+@use './fonts.scss';
 @use './reset.scss';
 @use './themes.scss';
 @use './components.scss';
@@ -44,4 +45,3 @@ body.modal-open .content {
     background: var(--border-hover);
   }
 }
-
