@@ -396,7 +396,7 @@
   min-width: 860px;
 
   th:nth-child(1) {
-    width: 150px;
+    width: 158px;
   }
   th:nth-child(2) {
     width: 14%;
@@ -656,17 +656,28 @@
     display: block;
   }
 
+  /* Model and account share what the fixed columns leave. */
   .requestsTable {
     min-width: 640px;
 
     th:nth-child(1) {
-      width: 140px;
+      width: 158px;
     }
-    th:nth-child(3) {
-      width: 30%;
-    }
+    th:nth-child(3),
     th:nth-child(4) {
-      width: 34%;
+      width: auto;
+    }
+    th:nth-child(5) {
+      width: 100px;
+    }
+    th:nth-child(6) {
+      width: 64px;
+    }
+    th:nth-child(7) {
+      width: 56px;
+    }
+    th:nth-child(8) {
+      width: 56px;
     }
   }
 }
