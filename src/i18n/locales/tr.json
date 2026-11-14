@@ -55,7 +55,10 @@
     "invalid_provider_index": "Geçersiz Sağlayıcı Dizini.",
     "unsaved_changes_title": "Kaydedilmemiş Değişiklikler",
     "unsaved_changes_message": "Kaydedilmemiş Değişiklikler Var. Şimdi Ayrılırsan Bunlar Silinir. Ayrılmak İstiyor Musun?",
-    "details": "Ayrıntılar"
+    "details": "Ayrıntılar",
+    "request_id": "İstek kimliği",
+    "copy_raw": "Ham metni kopyala",
+    "copied": "Kopyalandı"
   },
   "title": {
     "login": "CLIProxyAPI Yönetim Merkezi",
@@ -214,7 +217,10 @@
     "method_missing": "Token, gecikme ve modele göre sayılar çizilmez. Bu ağ geçidinde dosya ve istek günlükleri kapalıdır; kullanım kuyruğu kayıtları 60 saniye tutar ve okununca siler, bu yüzden çizilecek geçmiş yoktur.",
     "disabled": "devre dışı",
     "cooling_down": "beklemede",
-    "now": "şimdi"
+    "now": "şimdi",
+    "share_range_1h": "Tüm isteklerdeki pay, son 1 saat",
+    "share_range_2h": "Tüm isteklerdeki pay, son 2 saat",
+    "share_range_all": "Tüm isteklerdeki pay, son 3 sa 20 dk"
   },
   "limits": {
     "renews": "{{date}} yenilenir",
@@ -249,7 +255,14 @@
     "credits": "Kredi: {{value}}",
     "credits_unlimited": "Kredi: sınırsız",
     "reset_credits": "Sıfırlama kredisi: {{count}}",
-    "overage": "Limitten sonra kredi kullanımı: {{state}}"
+    "overage": "Limitten sonra kredi kullanımı: {{state}}",
+    "grant_left": "{{total}} içinden {{left}} kaldı",
+    "spent_of_limit": "{{limit}} içinden {{spent}} harcandı",
+    "spent_no_limit": "{{spent}} harcandı, aylık limit yok",
+    "reason_out_of_credits": "Kredi bitti.",
+    "reset_action": "Limitleri sıfırla",
+    "reset_hint": "Bu hesabın limitlerini temizlemek için biriken bir sıfırlamayı kullanır. Önce sorar.",
+    "reset_dialog_title": "Kullanım limitlerini sıfırla"
   },
   "codex_lb": {
     "refreshed": "{{name}} codex-lb üzerinden yenilendi.",
@@ -279,7 +292,8 @@
     "status_until": "{{date}} tarihine kadar {{status}}",
     "key": "anahtar {{name}}",
     "key_inactive": "codex-lb anahtarı etkin değil",
-    "updated": "{{when}} güncellendi"
+    "updated": "{{when}} güncellendi",
+    "actions_unavailable": "Bu hesabın işlemleri henüz bağlanmadı."
   },
   "dashboard": {
     "hero_verdict_good": "Tüm Sistemler Dengede",
@@ -591,7 +605,12 @@
     "quota_refresh_single": "Kotayı Yenile",
     "quota_refresh_hint": "Yalnızca Bu Kimlik Bilgisinin Kotasını Yenile",
     "quota_refresh_success": "“{{name}}” için Kota Yenilendi",
-    "quota_refresh_failed": "“{{name}}” için Kota Yenilenemedi: {{message}}"
+    "quota_refresh_failed": "“{{name}}” için Kota Yenilenemedi: {{message}}",
+    "view_menu_label": "Filtre ve görünüm",
+    "view_status_label": "Durum",
+    "row_menu_label": "Hesap işlemleri",
+    "updated_relative": "{{when}} güncellendi",
+    "updated_unknown": "Güncelleme zamanı bilinmiyor"
   },
   "antigravity_subscription": {
     "plan_unknown": "Bilinmiyor",
@@ -1155,7 +1174,8 @@
     "success_saved_hint": "Kimlik Bilgisi Kaydedildi. Kimlik Dosyalarında Yönet.",
     "sign_up_prompt": "Henüz Hesap Yok Mu?",
     "copied": "Kopyalandı",
-    "other_providers": "Diğer sağlayıcılar"
+    "other_providers": "Diğer sağlayıcılar",
+    "tile_action": "Giriş yap"
   },
   "stats": {
     "success": "Başarılı",
@@ -1666,7 +1686,7 @@
         "add": "API Anahtarı Ekle",
         "generate": "Üret",
         "empty": "API Anahtarı Yok",
-        "hint": "Her Girdi Bir API Anahtarını Temsil Eder ('API Anahtarı Yönetimi' Sayfa Biçimiyle Tutarlı)",
+        "hint": "İstemciler bu ağ geçidini çağırmak için bu anahtarları kullanır.",
         "edit_title": "API Anahtarını Düzenle",
         "add_title": "API Anahtarı Ekle",
         "input_label": "API Anahtarı",

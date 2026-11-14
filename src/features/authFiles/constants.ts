@@ -28,14 +28,7 @@ export type AuthFileModelItem = {
 export type AuthFileIconAsset = string | { light: string; dark: string };
 
 export type QuotaProviderType =
-  | 'antigravity'
-  | 'claude'
-  | 'codex'
-  | 'devin'
-  | 'kimi'
-  | 'meta'
-  | 'plugin'
-  | 'xai';
+  'antigravity' | 'claude' | 'codex' | 'devin' | 'kimi' | 'meta' | 'plugin' | 'xai';
 export type AuthFileQuotaFilter = string | null;
 export type OAuthConfigLoadError = 'loading' | 'unsupported' | 'load' | null;
 
@@ -259,6 +252,18 @@ export function isRuntimeOnlyAuthFile(file: AuthFileItem): boolean {
   if (typeof raw === 'string') return raw.trim().toLowerCase() === 'true';
   return false;
 }
+
+/** When the auth file last changed, in ms, or null when the server did not say. */
+export const getModifiedMs = (item: AuthFileItem): number | null => {
+  const raw = item['modtime'] ?? item.modified;
+  if (!raw) return null;
+  const asNumber = Number(raw);
+  const date =
+    Number.isFinite(asNumber) && !Number.isNaN(asNumber)
+      ? new Date(asNumber < 1e12 ? asNumber * 1000 : asNumber)
+      : (parseTimestamp(raw) ?? new Date(String(raw)));
+  return Number.isNaN(date.getTime()) ? null : date.getTime();
+};
 
 export const formatModified = (item: AuthFileItem): string => {
   const raw = item['modtime'] ?? item.modified;

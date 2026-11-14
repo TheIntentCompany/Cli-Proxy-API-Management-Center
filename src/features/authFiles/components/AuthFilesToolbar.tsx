@@ -1,18 +1,11 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { IconSearch, IconSlidersHorizontal, IconTrash2 } from '@/components/ui/icons';
-import {
-  MAX_CARD_PAGE_SIZE,
-  MIN_CARD_PAGE_SIZE,
-} from '@/features/authFiles/constants';
-import type {
-  AuthFilesSortMode,
-  AuthFilesStatusFilterMode,
-} from '@/features/authFiles/uiState';
+import { IconChevronDown, IconSearch, IconSlidersHorizontal } from '@/components/ui/icons';
+import { MAX_CARD_PAGE_SIZE, MIN_CARD_PAGE_SIZE } from '@/features/authFiles/constants';
+import type { AuthFilesSortMode, AuthFilesStatusFilterMode } from '@/features/authFiles/uiState';
 import styles from './AuthFilesToolbar.module.scss';
 
 export type AuthFilesToolbarProps = {
@@ -36,8 +29,9 @@ export type AuthFilesToolbarProps = {
 };
 
 /**
- * 工作区工具栏：搜索 · 状态分段 · 排序 · 显示设置 popover。
- * 「删除筛选结果」放在工具栏最右端——与限定它作用域的过滤器相邻（映射原则）。
+ * Search, plus one "Filter and view" menu holding status, sort, page size, compact mode
+ * and the destructive "Delete all". One menu keeps the toolbar on a single row at any
+ * width, and keeps the bulk delete out of reach of a stray click.
  */
 export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
   const {
@@ -60,30 +54,28 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
     onDelete,
   } = props;
   const { t } = useTranslation();
-  const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false);
-  const displaySettingsRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!displaySettingsOpen) return;
-
+    if (!open) return;
     const handlePointerDown = (event: MouseEvent) => {
-      if (!displaySettingsRef.current?.contains(event.target as Node)) {
-        setDisplaySettingsOpen(false);
-      }
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setDisplaySettingsOpen(false);
-      }
+      if (event.key === 'Escape') setOpen(false);
     };
-
     document.addEventListener('mousedown', handlePointerDown);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [displaySettingsOpen]);
+  }, [open]);
+
+  const activeCount =
+    (statusFilterMode !== 'all' ? 1 : 0) + (sortMode !== sortOptions[0]?.value ? 1 : 0);
+  const statusLabel = statusFilterOptions.find((option) => option.value === statusFilterMode);
 
   return (
     <div className={styles.toolbar}>
@@ -97,56 +89,75 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
         />
       </div>
 
-      <div
-        className={styles.segmented}
-        role="group"
-        aria-label={t('auth_files.problem_filter_label')}
-      >
-        {statusFilterOptions.map((option) => {
-          const isActive = statusFilterMode === option.value;
-          const isProblem = option.value === 'problem';
-          return (
-            <button
-              key={option.value}
-              type="button"
-              className={`${styles.segment} ${isActive ? styles.segmentActive : ''} ${
-                isProblem ? styles.segmentProblem : ''
-              }`}
-              aria-pressed={isActive}
-              onClick={() => onStatusFilterChange(option.value)}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className={styles.sort}>
-        <Select
-          value={sortMode}
-          options={sortOptions}
-          onChange={onSortModeChange}
-          ariaLabel={t('auth_files.sort_label')}
-          size="sm"
-        />
-      </div>
-
-      <div className={styles.display} ref={displaySettingsRef}>
+      <div className={styles.menu} ref={menuRef}>
         <button
           type="button"
-          className={`${styles.displayButton} ${displaySettingsOpen ? styles.displayButtonActive : ''}`}
-          aria-expanded={displaySettingsOpen}
-          aria-controls="auth-files-display-settings"
-          title={t('auth_files.display_options_label')}
-        onClick={() => setDisplaySettingsOpen((open) => !open)}
+          className={`${styles.menuButton} ${open ? styles.menuButtonActive : ''}`}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          aria-controls="auth-files-view-menu"
+          onClick={() => setOpen((value) => !value)}
         >
-          <IconSlidersHorizontal size={15} />
-          <span>{t('auth_files.display_options_label')}</span>
+          <IconSlidersHorizontal size={15} aria-hidden="true" />
+          <span>{t('auth_files.view_menu_label')}</span>
+          {activeCount > 0 && (
+            <span className={styles.count} title={statusLabel?.label}>
+              {activeCount}
+            </span>
+          )}
+          <IconChevronDown size={14} aria-hidden="true" className={styles.chevron} />
         </button>
 
-        {displaySettingsOpen && (
-          <div id="auth-files-display-settings" className={styles.popover}>
-            <div className={styles.popoverRow}>
+        {open && (
+          <div
+            id="auth-files-view-menu"
+            className={styles.popover}
+            role="dialog"
+            aria-label={t('auth_files.view_menu_label')}
+          >
+            <div className={styles.group}>
+              <span className={styles.groupLabel} id="auth-files-status-label">
+                {t('auth_files.view_status_label')}
+              </span>
+              <div
+                className={styles.segmented}
+                role="group"
+                aria-labelledby="auth-files-status-label"
+              >
+                {statusFilterOptions.map((option) => {
+                  const isActive = statusFilterMode === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`${styles.segment} ${isActive ? styles.segmentActive : ''}`}
+                      aria-pressed={isActive}
+                      onClick={() => onStatusFilterChange(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className={styles.row}>
+              <label htmlFor="auth-files-sort">{t('auth_files.sort_label')}</label>
+              <select
+                id="auth-files-sort"
+                className={styles.select}
+                value={sortMode}
+                onChange={(event) => onSortModeChange(event.target.value)}
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.row}>
               <label htmlFor="auth-files-page-size">{t('auth_files.page_size_label')}</label>
               <input
                 id="auth-files-page-size"
@@ -159,13 +170,11 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
                 onChange={onPageSizeInputChange}
                 onBlur={(e) => onPageSizeCommit(e.currentTarget.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.currentTarget.blur();
-                  }
+                  if (e.key === 'Enter') e.currentTarget.blur();
                 }}
               />
             </div>
-            <div className={styles.popoverRow}>
+            <div className={styles.row}>
               <span>{t('auth_files.compact_mode_label')}</span>
               <ToggleSwitch
                 checked={compactMode}
@@ -173,19 +182,23 @@ export function AuthFilesToolbar(props: AuthFilesToolbarProps) {
                 ariaLabel={t('auth_files.compact_mode_label')}
               />
             </div>
+
+            <div className={styles.divider} role="separator" />
+            <button
+              type="button"
+              className={styles.deleteAction}
+              onClick={() => {
+                setOpen(false);
+                onDelete();
+              }}
+              disabled={deleteDisabled}
+            >
+              {deleteLoading && <LoadingSpinner size={13} />}
+              {deleteLabel}
+            </button>
           </div>
         )}
       </div>
-
-      <button
-        type="button"
-        className={styles.deleteAction}
-        onClick={onDelete}
-        disabled={deleteDisabled}
-      >
-        {deleteLoading ? <LoadingSpinner size={13} /> : <IconTrash2 size={14} />}
-        {deleteLabel}
-      </button>
     </div>
   );
 }

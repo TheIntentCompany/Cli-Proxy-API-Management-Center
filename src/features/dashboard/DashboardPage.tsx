@@ -130,7 +130,8 @@ export function DashboardPage() {
           label: familyName(item.family),
           color: FAMILY_COLOR[item.family],
           values: item.values,
-          area: true,
+          // No fill: one translucent area per series hid Claude under Codex.
+          area: false,
         }))
       : [
           {
@@ -265,7 +266,8 @@ export function DashboardPage() {
               </span>
             </div>
             <div className={styles.lead}>
-              <span className={styles.leadMeta}>{t(`insights.range_${range.id}_long`)}</span>
+              {/* The share covers the whole range; the chart's end labels are the last bucket. */}
+              <span className={styles.leadMeta}>{t(`insights.share_range_${range.id}`)}</span>
               <span className={styles.leadValue}>
                 {lead === 0 ? '0' : `+${Math.abs(lead ?? 0).toFixed(1)}`}
                 <span className={styles.leadUnit}>pp</span>

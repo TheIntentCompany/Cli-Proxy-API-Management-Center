@@ -10,6 +10,10 @@ export interface DescribedError {
   summary: string;
   /** The original text, pretty-printed when it was JSON; null when it adds nothing. */
   details: string | null;
+  /** The provider's request id, when the body carried one. */
+  requestId: string | null;
+  /** True when details is the provider's JSON body, offered as "Copy raw" rather than shown. */
+  isJson: boolean;
 }
 
 const KIND_LABELS: Record<string, string> = {
@@ -58,7 +62,7 @@ export function describeError(
   fallback = 'Something went wrong.'
 ): DescribedError {
   const original = (raw ?? '').trim();
-  if (!original) return { summary: fallback, details: null };
+  if (!original) return { summary: fallback, details: null, requestId: null, isJson: false };
 
   const jsonStart = original.search(/[{[]/);
   let parsed: unknown = null;
@@ -79,11 +83,26 @@ export function describeError(
     const summary = sentence(
       label && !body.toLowerCase().startsWith(label.toLowerCase()) ? `${label}: ${body}` : body
     );
-    return { summary, details: JSON.stringify(parsed, null, 2) };
+    const record = asRecord(parsed);
+    const requestId =
+      text(record?.request_id) ||
+      text(record?.requestId) ||
+      text(asRecord(record?.error)?.request_id);
+    return {
+      summary,
+      details: JSON.stringify(parsed, null, 2),
+      requestId: requestId || null,
+      isJson: true,
+    };
   }
 
   // Plain text: keep the first sentence on screen and the rest in details.
   const first = original.match(/^[^.!?\n]{1,220}[.!?]?/)?.[0] ?? original.slice(0, 220);
   const summary = sentence(first);
-  return { summary, details: first.trim().length < original.length ? original : null };
+  return {
+    summary,
+    details: first.trim().length < original.length ? original : null,
+    requestId: null,
+    isJson: false,
+  };
 }

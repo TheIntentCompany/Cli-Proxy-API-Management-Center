@@ -55,7 +55,10 @@
     "invalid_provider_index": "Chỉ mục provider không hợp lệ.",
     "unsaved_changes_title": "Thay đổi chưa lưu",
     "unsaved_changes_message": "Bạn có thay đổi chưa lưu. Rời đi bây giờ sẽ mất các thay đổi đó. Bạn có muốn rời đi không?",
-    "details": "Chi tiết"
+    "details": "Chi tiết",
+    "request_id": "ID yêu cầu",
+    "copy_raw": "Sao chép bản gốc",
+    "copied": "Đã sao chép"
   },
   "title": {
     "login": "Trung tâm Quản lý CLI Proxy API",
@@ -214,7 +217,10 @@
     "method_missing": "Không vẽ token, độ trễ và số liệu theo mô hình. Cổng này tắt log tệp và log yêu cầu, còn hàng đợi mức dùng chỉ giữ bản ghi 60 giây và xóa khi đọc, nên không có lịch sử để vẽ.",
     "disabled": "đã tắt",
     "cooling_down": "đang tạm nghỉ",
-    "now": "bây giờ"
+    "now": "bây giờ",
+    "share_range_1h": "Tỷ lệ trên tất cả yêu cầu, 1 giờ qua",
+    "share_range_2h": "Tỷ lệ trên tất cả yêu cầu, 2 giờ qua",
+    "share_range_all": "Tỷ lệ trên tất cả yêu cầu, 3 giờ 20 phút qua"
   },
   "limits": {
     "renews": "Gia hạn {{date}}",
@@ -249,7 +255,14 @@
     "credits": "Tín dụng: {{value}}",
     "credits_unlimited": "Tín dụng: không giới hạn",
     "reset_credits": "Tín dụng đặt lại: {{count}}",
-    "overage": "Dùng tín dụng sau giới hạn: {{state}}"
+    "overage": "Dùng tín dụng sau giới hạn: {{state}}",
+    "grant_left": "Còn {{left}} / {{total}}",
+    "spent_of_limit": "Đã dùng {{spent}} / {{limit}}",
+    "spent_no_limit": "Đã dùng {{spent}}, không giới hạn tháng",
+    "reason_out_of_credits": "Hết tín dụng.",
+    "reset_action": "Đặt lại giới hạn",
+    "reset_hint": "Dùng một lượt đặt lại đã tích để xóa giới hạn của tài khoản này. Sẽ hỏi trước.",
+    "reset_dialog_title": "Đặt lại giới hạn sử dụng"
   },
   "codex_lb": {
     "refreshed": "Đã làm mới {{name}} qua codex-lb.",
@@ -279,7 +292,8 @@
     "status_until": "{{status}} đến {{date}}",
     "key": "khóa {{name}}",
     "key_inactive": "khóa codex-lb không hoạt động",
-    "updated": "cập nhật {{when}}"
+    "updated": "cập nhật {{when}}",
+    "actions_unavailable": "Thao tác cho tài khoản này chưa được kết nối."
   },
   "dashboard": {
     "hero_verdict_good": "Mọi hệ thống ổn định",
@@ -591,7 +605,12 @@
     "policy_rules_hint": "Các quy tắc tùy chỉnh được ưu tiên theo thứ tự danh sách. Kế thừa hoặc danh sách trống sẽ sử dụng quy tắc kế thừa; điều này không vô hiệu hóa chúng. Mẫu biểu thức chính quy (Regex) dùng cú pháp của Go.",
     "policy_retry_invalid": "Nhập một số nguyên an toàn không âm, hoặc chọn Kế thừa.",
     "policy_aliases_invalid": "Nhập tên model và bí danh không để trống cho mỗi hàng mới hoặc đã chỉnh sửa.",
-    "policy_rules_invalid": "Hoàn thành mỗi quy tắc đã chỉnh sửa với mã trạng thái dương, một hành động và ít nhất một điều kiện khớp không để trống."
+    "policy_rules_invalid": "Hoàn thành mỗi quy tắc đã chỉnh sửa với mã trạng thái dương, một hành động và ít nhất một điều kiện khớp không để trống.",
+    "view_menu_label": "Lọc và hiển thị",
+    "view_status_label": "Trạng thái",
+    "row_menu_label": "Thao tác tài khoản",
+    "updated_relative": "Cập nhật {{when}}",
+    "updated_unknown": "Không rõ thời gian cập nhật"
   },
   "antigravity_subscription": {
     "plan_unknown": "Không rõ",
@@ -1111,7 +1130,8 @@
     "kimi_ai_oauth_status_error": "Xác thực thất bại:",
     "kimi_ai_oauth_start_error": "Không thể bắt đầu đăng nhập Kimi quốc tế:",
     "kimi_ai_oauth_polling_error": "Không thể kiểm tra trạng thái xác thực:",
-    "other_providers": "Nhà cung cấp khác"
+    "other_providers": "Nhà cung cấp khác",
+    "tile_action": "Đăng nhập"
   },
   "stats": {
     "success": "Thành công",
@@ -1458,7 +1478,7 @@
         "add": "Thêm API Key",
         "generate": "Tạo",
         "empty": "Chưa có API key",
-        "hint": "Mỗi mục là một API key (nhất quán với phong cách trang 'Quản lý API Key')",
+        "hint": "Ứng dụng khách dùng các khóa này để gọi cổng này.",
         "edit_title": "Chỉnh sửa API Key",
         "add_title": "Thêm API Key",
         "input_label": "API Key",

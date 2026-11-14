@@ -242,9 +242,7 @@
 
 .listLabel {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   color: var(--t3-foreground);
 }
 
@@ -284,4 +282,38 @@
 
 .link {
   @include t3-button(outline, xs);
+}
+
+/* Banked resets get two columns once the row is wide enough, so labels can be read whole. */
+@container limits (min-width: 620px) {
+  .factWide {
+    grid-column: span 2;
+  }
+}
+
+/* Spending a reset is quieter than reading quota, and always asks first. */
+.resetAction {
+  @include t3-button(ghost, xs);
+  justify-content: flex-start;
+  color: var(--t3-muted-foreground);
+
+  &:hover:not(:disabled) {
+    color: var(--t3-foreground);
+  }
+}
+
+.pulsing {
+  animation: quota-row-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes quota-row-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulsing {
+    animation: none;
+  }
 }

@@ -16,8 +16,9 @@ const QUICK_FILL_BRANDS: ReadonlySet<ProviderBrand> = new Set(QUICK_FILL_BRAND_O
 export function ProviderCategoryList({ groups, activeBrand, onSelect }: ProviderCategoryListProps) {
   const { t } = useTranslation();
 
+  // Quick fill lists sponsored presets; show one only once it holds a key.
   const quickFillGroups = groups
-    .filter((g) => QUICK_FILL_BRANDS.has(g.id))
+    .filter((g) => QUICK_FILL_BRANDS.has(g.id) && g.resources.length > 0)
     .sort(
       (left, right) =>
         QUICK_FILL_BRAND_ORDER.indexOf(left.id) - QUICK_FILL_BRAND_ORDER.indexOf(right.id)

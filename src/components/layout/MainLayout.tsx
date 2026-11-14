@@ -633,7 +633,8 @@ export function MainLayout() {
           },
         ]
       : []),
-    quickStartNavItem,
+    // The Quick start page sets up a sponsored provider; list it only once it is in use.
+    ...(isApiKeyFunConfigured ? [quickStartNavItem] : []),
     {
       path: '/system',
       labelKey: 'nav.system_info',

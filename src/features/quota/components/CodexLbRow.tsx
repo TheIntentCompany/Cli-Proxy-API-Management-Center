@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LimitMeter } from '@/components/ui/LimitMeter';
 import { Badge, ErrorNotice, MiddleTruncate } from '@/components/ui/t3';
-import { IconRefreshCw } from '@/components/ui/icons';
+import { IconHistory, IconRefreshCw } from '@/components/ui/icons';
 import { useNow } from '@/hooks/useNow';
 import { useNotificationStore } from '@/stores';
 import {
@@ -80,6 +80,8 @@ export function CodexLbRow({
   }, [loadResets]);
 
   const available = resets?.available ?? account.resetCreditsAvailable ?? null;
+  // The relay answers the resets read; if it can't, its actions can't run either.
+  const actionsDown = resetsError !== null;
 
   const run = async (kind: 'refresh' | 'reset', action: () => Promise<unknown>) => {
     setBusy(kind);
@@ -116,8 +118,9 @@ export function CodexLbRow({
           date: formatShortDateTime(window.resetAtMs, locale),
         })
       : undefined;
+  // Relative first ("in 26 days"), with the date beside it for planning.
   const when = (ms: number) =>
-    `${formatShortDateTime(ms, locale)} (${formatRelative(ms, now, locale)})`;
+    `${formatRelative(ms, now, locale)} · ${formatShortDateTime(ms, locale)}`;
 
   const status = account.status ?? 'unknown';
   const blocked = BLOCKED_STATUSES.has(status);
@@ -194,8 +197,8 @@ export function CodexLbRow({
           type="button"
           className={styles.action}
           onClick={refresh}
-          disabled={busy !== null}
-          title={t('codex_lb.refresh_hint')}
+          disabled={busy !== null || actionsDown}
+          title={actionsDown ? t('codex_lb.actions_unavailable') : t('codex_lb.refresh_hint')}
         >
           <IconRefreshCw
             size={13}
@@ -206,18 +209,18 @@ export function CodexLbRow({
         </button>
         <button
           type="button"
-          className={styles.action}
+          className={styles.resetAction}
           onClick={reset}
-          disabled={busy !== null || !available}
-          title={t('codex_lb.reset_hint')}
+          disabled={busy !== null || !available || actionsDown}
+          title={actionsDown ? t('codex_lb.actions_unavailable') : t('limits.reset_hint')}
           aria-haspopup="dialog"
         >
-          <IconRefreshCw
+          <IconHistory
             size={13}
-            className={busy === 'reset' ? styles.spinning : undefined}
+            className={busy === 'reset' ? styles.pulsing : undefined}
             aria-hidden="true"
           />
-          {available ? t('codex_lb.reset_count', { count: available }) : t('codex_lb.reset')}
+          {t('limits.reset_action')}
         </button>
       </div>
 
@@ -265,9 +268,6 @@ export function CodexLbRow({
                   </li>
                 ))}
               </ul>
-            )}
-            {resetsError && (
-              <span className={styles.muted}>{t('codex_lb.resets_dates_unavailable')}</span>
             )}
           </Fact>
           <Fact label={t('codex_lb.key_label')}>

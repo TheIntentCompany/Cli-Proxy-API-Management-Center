@@ -422,5 +422,6 @@
 
 .tileAction {
   @include t3-button(outline, sm);
+  margin: 0;
 }
 /* ===== end T3 control language ===== */

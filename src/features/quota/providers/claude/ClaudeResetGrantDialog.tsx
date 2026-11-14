@@ -89,7 +89,7 @@ export function ClaudeResetGrantDialog(props: Props) {
   return (
     <Modal
       open={props.open}
-      title={t('claude_reset.title')}
+      title={t('limits.reset_dialog_title')}
       onClose={props.onClose}
       closeDisabled={props.busy}
       footer={

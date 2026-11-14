@@ -1,8 +1,11 @@
 /**
- * An error as one plain sentence, with the provider's original text behind "Details".
+ * An error as one plain sentence. When the provider returned a JSON body, the request id
+ * shows as its own field and the body is offered through "Copy raw" instead of being
+ * printed; other long text stays behind "Details".
  * Styled after T3 Code's alert (MIT, see THIRD_PARTY_NOTICES.md).
  */
-import { useId } from 'react';
+import { useId, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { describeError } from '@/utils/describeError';
 import styles from './ErrorNotice.module.scss';
 
@@ -20,20 +23,56 @@ export function ErrorNotice({
   detailsLabel?: string;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const described = describeError(error);
-  const summary = givenDetails === undefined ? described.summary : (error ?? '');
-  const details = givenDetails === undefined ? described.details : givenDetails;
+  const own = givenDetails !== undefined;
+  const summary = own ? (error ?? '') : described.summary;
+  const details = own ? givenDetails : described.details;
+  const requestId = own ? null : described.requestId;
+  const isJson = !own && described.isJson;
   const id = useId();
+  const [copied, setCopied] = useState(false);
+
+  const copyRaw = async () => {
+    if (!details) return;
+    try {
+      await navigator.clipboard.writeText(details);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  };
+
   return (
     <div
       className={[styles.notice, styles[tone], className].filter(Boolean).join(' ')}
       role="alert"
-      aria-describedby={details ? id : undefined}
+      aria-describedby={details && !isJson ? id : undefined}
     >
       <span className={styles.dot} aria-hidden="true" />
       <div className={styles.body}>
         <p className={styles.summary}>{summary}</p>
-        {details && (
+        {(requestId || (isJson && details)) && (
+          <div className={styles.meta}>
+            {requestId && (
+              <span className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  {t('common.request_id', { defaultValue: 'Request ID' })}
+                </span>
+                <code title={requestId}>{requestId}</code>
+              </span>
+            )}
+            {isJson && details && (
+              <button type="button" className={styles.copy} onClick={() => void copyRaw()}>
+                {copied
+                  ? t('common.copied', { defaultValue: 'Copied' })
+                  : t('common.copy_raw', { defaultValue: 'Copy raw' })}
+              </button>
+            )}
+          </div>
+        )}
+        {details && !isJson && (
           <details className={styles.details}>
             <summary>{detailsLabel}</summary>
             <pre id={id}>{details}</pre>

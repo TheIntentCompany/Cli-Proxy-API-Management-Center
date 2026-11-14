@@ -66,3 +66,46 @@
     overflow-wrap: anywhere;
   }
 }
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 4px;
+  min-width: 0;
+}
+
+.field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  color: var(--t3-muted-foreground);
+
+  code {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--t3-foreground);
+    font-family: $font-code;
+    font-size: $text-2xs;
+  }
+}
+
+.fieldLabel {
+  flex: none;
+}
+
+.copy {
+  @include button-reset;
+  color: currentColor;
+  font-size: $text-xs;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

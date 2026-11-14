@@ -55,7 +55,10 @@
     "invalid_provider_index": "Неверный индекс провайдера.",
     "unsaved_changes_title": "Несохранённые изменения",
     "unsaved_changes_message": "У вас есть несохранённые изменения. Если вы уйдёте, они будут потеряны. Выйти?",
-    "details": "Подробности"
+    "details": "Подробности",
+    "request_id": "ID запроса",
+    "copy_raw": "Скопировать исходник",
+    "copied": "Скопировано"
   },
   "title": {
     "login": "Центр управления CLI Proxy API",
@@ -213,7 +216,10 @@
     "method_missing": "Токены, задержка и счётчики по моделям не показаны. На этом шлюзе логи в файл и логи запросов выключены, а очередь использования хранит записи 60 секунд и удаляет их при чтении, поэтому истории нет.",
     "disabled": "отключён",
     "cooling_down": "пауза",
-    "now": "сейчас"
+    "now": "сейчас",
+    "share_range_1h": "Доля всех запросов, последний час",
+    "share_range_2h": "Доля всех запросов, последние 2 часа",
+    "share_range_all": "Доля всех запросов, последние 3 ч 20 мин"
   },
   "limits": {
     "renews": "Продление {{date}}",
@@ -248,7 +254,14 @@
     "credits": "Кредиты: {{value}}",
     "credits_unlimited": "Кредиты: без ограничений",
     "reset_credits": "Кредиты сброса: {{count}}",
-    "overage": "Кредиты после лимита: {{state}}"
+    "overage": "Кредиты после лимита: {{state}}",
+    "grant_left": "Осталось {{left}} из {{total}}",
+    "spent_of_limit": "Потрачено {{spent}} из {{limit}}",
+    "spent_no_limit": "Потрачено {{spent}}, без месячного лимита",
+    "reason_out_of_credits": "Кредиты закончились.",
+    "reset_action": "Сбросить лимиты",
+    "reset_hint": "Потратить один накопленный сброс, чтобы снять лимиты аккаунта. Сначала спросит.",
+    "reset_dialog_title": "Сброс лимитов"
   },
   "codex_lb": {
     "refreshed": "{{name}} обновлён через codex-lb.",
@@ -278,7 +291,8 @@
     "status_until": "{{status}} до {{date}}",
     "key": "ключ {{name}}",
     "key_inactive": "ключ codex-lb неактивен",
-    "updated": "обновлено {{when}}"
+    "updated": "обновлено {{when}}",
+    "actions_unavailable": "Действия для этого аккаунта ещё не подключены."
   },
   "dashboard": {
     "hero_verdict_good": "Всё стабильно",
@@ -594,7 +608,12 @@
     "quota_refresh_single": "Обновить квоту",
     "quota_refresh_hint": "Обновить квоту только для этих учётных данных",
     "quota_refresh_success": "Квота для \"{{name}}\" обновлена",
-    "quota_refresh_failed": "Не удалось обновить квоту для \"{{name}}\": {{message}}"
+    "quota_refresh_failed": "Не удалось обновить квоту для \"{{name}}\": {{message}}",
+    "view_menu_label": "Фильтр и вид",
+    "view_status_label": "Статус",
+    "row_menu_label": "Действия с аккаунтом",
+    "updated_relative": "Обновлено {{when}}",
+    "updated_unknown": "Время обновления неизвестно"
   },
   "antigravity_subscription": {
     "plan_unknown": "Неизвестно",
@@ -1158,7 +1177,8 @@
     "success_saved_hint": "Учётные данные сохранены — управляйте ими в файлах аутентификации.",
     "sign_up_prompt": "Нет аккаунта?",
     "copied": "Скопировано",
-    "other_providers": "Другие провайдеры"
+    "other_providers": "Другие провайдеры",
+    "tile_action": "Войти"
   },
   "stats": {
     "success": "Успех",
@@ -1669,7 +1689,7 @@
         "add": "Добавить API-ключ",
         "generate": "Сгенерировать",
         "empty": "API-ключи отсутствуют",
-        "hint": "Каждая запись — это API-ключ (в том же стиле, что и на странице управления API-ключами)",
+        "hint": "Клиенты используют эти ключи для обращения к шлюзу.",
         "edit_title": "Редактирование API-ключа",
         "add_title": "Добавление API-ключа",
         "input_label": "API-ключ",

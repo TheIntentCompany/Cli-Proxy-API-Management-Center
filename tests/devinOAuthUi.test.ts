@@ -55,7 +55,7 @@ describe('Devin OAuth login UI', () => {
 
     const idle = renderDialog({});
     expect(idle).toContain('Devin OAuth');
-    expect(idle).toContain('Start Devin Login');
+    expect(idle).toContain('Start Devin login');
     expect(idle).toContain('v7.3.1');
     expect(idle).toContain('five minutes');
     expect(idle).not.toContain('auth_login.devin_');

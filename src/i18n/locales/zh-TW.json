@@ -55,7 +55,10 @@
     "invalid_provider_index": "無效的供應商索引。",
     "unsaved_changes_title": "未儲存的變更",
     "unsaved_changes_message": "你有未儲存的變更，離開後將遺失這些變更。確定要離開嗎？",
-    "details": "詳情"
+    "details": "詳情",
+    "request_id": "請求 ID",
+    "copy_raw": "複製原文",
+    "copied": "已複製"
   },
   "title": {
     "login": "CLI Proxy API Management Center",
@@ -214,7 +217,10 @@
     "method_missing": "未繪製 Token、延遲和依模型的統計。此閘道關閉了檔案日誌與請求日誌，用量佇列只保留 60 秒且讀取即刪除，因此沒有可繪製的歷史。",
     "disabled": "已停用",
     "cooling_down": "冷卻中",
-    "now": "現在"
+    "now": "現在",
+    "share_range_1h": "全部請求占比，最近 1 小時",
+    "share_range_2h": "全部請求占比，最近 2 小時",
+    "share_range_all": "全部請求占比，最近 3 小時 20 分"
   },
   "limits": {
     "renews": "{{date}} 續約",
@@ -249,7 +255,14 @@
     "credits": "額度：{{value}}",
     "credits_unlimited": "額度：無限",
     "reset_credits": "重置額度：{{count}}",
-    "overage": "超限後使用額度：{{state}}"
+    "overage": "超限後使用額度：{{state}}",
+    "grant_left": "剩餘 {{left}} / {{total}}",
+    "spent_of_limit": "已用 {{spent}}，上限 {{limit}}",
+    "spent_no_limit": "已用 {{spent}}，無每月上限",
+    "reason_out_of_credits": "額度已用完。",
+    "reset_action": "重設限額",
+    "reset_hint": "使用一次儲備的重設來清除此帳號的限額。執行前會先確認。",
+    "reset_dialog_title": "重設用量限額"
   },
   "codex_lb": {
     "refreshed": "已透過 codex-lb 重新整理 {{name}}。",
@@ -279,7 +292,8 @@
     "status_until": "{{status}}，直到 {{date}}",
     "key": "金鑰 {{name}}",
     "key_inactive": "codex-lb 金鑰未啟用",
-    "updated": "{{when}}更新"
+    "updated": "{{when}}更新",
+    "actions_unavailable": "此帳號的操作尚未接通。"
   },
   "dashboard": {
     "hero_verdict_good": "運行平穩",
@@ -589,7 +603,12 @@
     "quota_refresh_single": "重新整理配額",
     "quota_refresh_hint": "僅重新整理該驗證檔案的配額",
     "quota_refresh_success": "已重新整理「{{name}}」的配額",
-    "quota_refresh_failed": "重新整理「{{name}}」的配額失敗：{{message}}"
+    "quota_refresh_failed": "重新整理「{{name}}」的配額失敗：{{message}}",
+    "view_menu_label": "篩選與顯示",
+    "view_status_label": "狀態",
+    "row_menu_label": "帳號操作",
+    "updated_relative": "更新於{{when}}",
+    "updated_unknown": "更新時間未知"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",
@@ -1182,7 +1201,8 @@
     "copied": "已複製",
     "login_another_account": "登入另一個帳號",
     "view_auth_files": "查看驗證檔案",
-    "other_providers": "其他提供者"
+    "other_providers": "其他提供者",
+    "tile_action": "登入"
   },
   "stats": {
     "success": "成功",
@@ -1693,7 +1713,7 @@
         "add": "新增 API 金鑰",
         "generate": "產生",
         "empty": "暫無 API 金鑰",
-        "hint": "每個條目代表一個 API 金鑰（與「API 金鑰管理」頁面樣式一致）",
+        "hint": "用戶端使用這些金鑰呼叫此閘道。",
         "edit_title": "編輯 API 金鑰",
         "add_title": "新增 API 金鑰",
         "input_label": "API 金鑰",

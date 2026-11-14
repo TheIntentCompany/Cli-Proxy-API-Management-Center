@@ -1,5 +1,5 @@
 import { useId, useState, type CSSProperties } from 'react';
-import { IconPlus } from '@/components/ui/icons';
+import { useTranslation } from 'react-i18next';
 import type { ProviderFlowState } from '../hooks/useOAuthFlows';
 import { BrandGlyph } from './BrandGlyph';
 import styles from './ProviderTile.module.scss';
@@ -22,7 +22,7 @@ export interface ProviderTileProps {
 /**
  * 提供商磁贴：整块可点（stretched button），点击即开始登录并打开授权对话框。
  * 副行平时说明登录方式，登录进行中改为实时状态 —— 对话框关着也能看到后台进度。
- * 赞助商不走磁贴，见 SponsorCard。
+ * Kimi 的两个站点也用同样的磁贴。
  */
 export function ProviderTile({
   label,
@@ -33,6 +33,7 @@ export function ProviderTile({
   statusLabel,
   onOpen,
 }: ProviderTileProps) {
+  const { t } = useTranslation();
   const captionId = useId();
   // 挂载时捕获延迟：之后的重渲染（状态轮询）不重播入场
   const [enterDelay] = useState(
@@ -69,8 +70,9 @@ export function ProviderTile({
           )}
         </span>
       </span>
+      {/* Decorative: the whole tile is the button; this just names the action. */}
       <span className={styles.trail} aria-hidden="true">
-        <IconPlus size={15} />
+        {t('auth_login.tile_action')}
       </span>
     </div>
   );

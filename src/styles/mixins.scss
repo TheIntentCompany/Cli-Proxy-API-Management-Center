@@ -149,6 +149,16 @@
       background: var(--t3-primary-hover);
       border-color: var(--t3-primary-hover);
     }
+
+    // A faded blue still reads as "go"; a disabled primary turns neutral instead.
+    &:disabled,
+    &[aria-disabled='true'] {
+      background: var(--t3-secondary);
+      border-color: var(--t3-border);
+      color: var(--t3-subtle-foreground);
+      box-shadow: none;
+      opacity: 1;
+    }
   } @else if $variant == outline {
     background: var(--t3-input-fill);
     border-color: var(--t3-input);

@@ -55,7 +55,10 @@
     "invalid_provider_index": "无效的提供商索引。",
     "unsaved_changes_title": "未保存的更改",
     "unsaved_changes_message": "你有未保存的更改，离开后将丢失这些更改。确定要离开吗？",
-    "details": "详情"
+    "details": "详情",
+    "request_id": "请求 ID",
+    "copy_raw": "复制原文",
+    "copied": "已复制"
   },
   "title": {
     "login": "CLI Proxy API Management Center",
@@ -214,7 +217,10 @@
     "method_missing": "未绘制 Token、延迟和按模型的统计。此网关关闭了文件日志和请求日志，用量队列只保留 60 秒且读取即删除，因此没有可绘制的历史。",
     "disabled": "已停用",
     "cooling_down": "冷却中",
-    "now": "现在"
+    "now": "现在",
+    "share_range_1h": "全部请求占比，最近 1 小时",
+    "share_range_2h": "全部请求占比，最近 2 小时",
+    "share_range_all": "全部请求占比，最近 3 小时 20 分"
   },
   "limits": {
     "renews": "{{date}} 续期",
@@ -249,7 +255,14 @@
     "credits": "额度：{{value}}",
     "credits_unlimited": "额度：无限",
     "reset_credits": "重置额度：{{count}}",
-    "overage": "超限后使用额度：{{state}}"
+    "overage": "超限后使用额度：{{state}}",
+    "grant_left": "剩余 {{left}} / {{total}}",
+    "spent_of_limit": "已用 {{spent}}，上限 {{limit}}",
+    "spent_no_limit": "已用 {{spent}}，无月度上限",
+    "reason_out_of_credits": "额度已用完。",
+    "reset_action": "重置限额",
+    "reset_hint": "使用一次储备的重置来清除此账号的限额。执行前会先确认。",
+    "reset_dialog_title": "重置用量限额"
   },
   "codex_lb": {
     "refreshed": "已通过 codex-lb 刷新 {{name}}。",
@@ -279,7 +292,8 @@
     "status_until": "{{status}}，直至 {{date}}",
     "key": "密钥 {{name}}",
     "key_inactive": "codex-lb 密钥未启用",
-    "updated": "{{when}}更新"
+    "updated": "{{when}}更新",
+    "actions_unavailable": "此账号的操作尚未接通。"
   },
   "dashboard": {
     "hero_verdict_good": "运行平稳",
@@ -589,7 +603,12 @@
     "quota_refresh_single": "刷新额度",
     "quota_refresh_hint": "仅刷新该认证文件的额度",
     "quota_refresh_success": "已刷新 \"{{name}}\" 的额度",
-    "quota_refresh_failed": "刷新 \"{{name}}\" 的额度失败：{{message}}"
+    "quota_refresh_failed": "刷新 \"{{name}}\" 的额度失败：{{message}}",
+    "view_menu_label": "筛选与显示",
+    "view_status_label": "状态",
+    "row_menu_label": "账号操作",
+    "updated_relative": "更新于{{when}}",
+    "updated_unknown": "更新时间未知"
   },
   "antigravity_subscription": {
     "plan_unknown": "未知",
@@ -1154,7 +1173,8 @@
     "success_saved_hint": "凭证已保存，可在认证文件页管理。",
     "sign_up_prompt": "还没有账号？",
     "copied": "已复制",
-    "other_providers": "其他提供商"
+    "other_providers": "其他提供商",
+    "tile_action": "登录"
   },
   "stats": {
     "success": "成功",
@@ -1665,7 +1685,7 @@
         "add": "添加 API 密钥",
         "generate": "生成",
         "empty": "暂无 API 密钥",
-        "hint": "每个条目代表一个 API 密钥（与 「API 密钥管理」 页面样式一致）",
+        "hint": "客户端使用这些密钥调用此网关。",
         "edit_title": "编辑 API 密钥",
         "add_title": "添加 API 密钥",
         "input_label": "API 密钥",

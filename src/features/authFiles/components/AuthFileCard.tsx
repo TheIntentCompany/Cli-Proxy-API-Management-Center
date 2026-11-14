@@ -15,9 +15,12 @@ import {
 import { ProviderStatusBar } from '@/components/providers/ProviderStatusBar';
 import type { AuthFileItem } from '@/types';
 import { statusBarDataFromRecentRequests } from '@/utils/recentRequests';
-import { formatDateTimeValue, formatFileSize } from '@/utils/format';
+import { formatDateTimeValue } from '@/utils/format';
+import { formatRelative } from '@/utils/relativeTime';
+import { useNow } from '@/hooks/useNow';
 import {
   formatModified,
+  getModifiedMs,
   getAuthFileStatusMessage,
   hasAuthFileStatusWarning,
   getTypeColor,
@@ -35,7 +38,7 @@ import { AuthFileQuotaSection } from '@/features/authFiles/components/AuthFileQu
 import { AuthFileCooldownSection } from './AuthFileCooldownSection';
 import { getSiwcBindingStatus, supportsSiwcBinding } from '@/features/oauth/siwcBinding';
 import { SiwcStatusBadge } from '@/features/oauth/components/SiwcStatusBadge';
-import { ErrorNotice, MiddleTruncate } from '@/components/ui/t3';
+import { ErrorNotice, Menu, MiddleTruncate } from '@/components/ui/t3';
 import styles from './AuthFileCard.module.scss';
 
 export type AuthFileCardProps = {
@@ -87,6 +90,8 @@ export function AuthFileCard(props: AuthFileCardProps) {
     onToggleSelect,
   } = props;
 
+  const now = useNow();
+  const modifiedMs = getModifiedMs(file);
   const isRuntimeOnly = isRuntimeOnlyAuthFile(file);
   const providerKey = normalizeProviderKey(String(file.type ?? file.provider ?? 'unknown'));
   const isAistudio = providerKey === 'aistudio';
@@ -226,11 +231,13 @@ export function AuthFileCard(props: AuthFileCardProps) {
       </div>
 
       <div className={styles.metaRow}>
-        <span title={t('auth_files.file_size')}>{file.size ? formatFileSize(file.size) : '-'}</span>
-        <span className={styles.metaDivider} aria-hidden="true">
-          ·
+        <span title={`${t('auth_files.file_modified')}: ${formatModified(file)}`}>
+          {modifiedMs
+            ? t('auth_files.updated_relative', {
+                when: formatRelative(modifiedMs, now, i18n.language),
+              })
+            : t('auth_files.updated_unknown')}
         </span>
-        <span title={t('auth_files.file_modified')}>{formatModified(file)}</span>
         {priorityValue !== undefined && (
           <>
             <span className={styles.metaDivider} aria-hidden="true">
@@ -303,36 +310,36 @@ export function AuthFileCard(props: AuthFileCardProps) {
                   {isManualRefreshing ? <LoadingSpinner size={14} /> : <IconRefreshCw size={15} />}
                 </Button>
               )}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => onDownload(file.name)}
-                className={styles.iconButton}
-                title={t('auth_files.download_button')}
-                disabled={disableControls}
-              >
-                <IconDownload size={15} />
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => onOpenPrefixProxyEditor(file)}
-                className={styles.iconButton}
-                title={t('auth_files.prefix_proxy_button')}
+              {/* Details, download and delete live in one menu; delete sits last. */}
+              <Menu
+                label={t('auth_files.row_menu_label')}
+                trigger={
+                  deleting === file.name ? <LoadingSpinner size={14} /> : <IconSettings size={15} />
+                }
                 disabled={disableControls || isManualRefreshing}
-              >
-                <IconSettings size={15} />
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => onDelete(file.name)}
-                className={styles.iconButton}
-                title={t('auth_files.delete_button')}
-                disabled={disableControls || deleting === file.name || isManualRefreshing}
-              >
-                {deleting === file.name ? <LoadingSpinner size={14} /> : <IconTrash2 size={15} />}
-              </Button>
+                items={[
+                  {
+                    key: 'details',
+                    label: t('auth_files.prefix_proxy_button'),
+                    icon: <IconSettings size={14} />,
+                    onSelect: () => onOpenPrefixProxyEditor(file),
+                  },
+                  {
+                    key: 'download',
+                    label: t('auth_files.download_button'),
+                    icon: <IconDownload size={14} />,
+                    onSelect: () => onDownload(file.name),
+                  },
+                  {
+                    key: 'delete',
+                    label: t('auth_files.delete_button'),
+                    icon: <IconTrash2 size={14} />,
+                    destructive: true,
+                    disabled: deleting === file.name,
+                    onSelect: () => onDelete(file.name),
+                  },
+                ]}
+              />
             </div>
           )}
         </div>

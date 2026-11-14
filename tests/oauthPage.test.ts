@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
@@ -146,7 +145,7 @@ describe('OAuth provider gallery', () => {
     });
   }
 
-  test('merges both Kimi sites into one sponsor card with per-site entries', async () => {
+  test('shows each Kimi site as an ordinary tile, the same size as the others', async () => {
     const i18n = createInstance();
     await i18n.init({ lng: 'zh-CN', resources: { 'zh-CN': { translation: zhCN } } });
     const markup = renderToStaticMarkup(
@@ -156,14 +155,13 @@ describe('OAuth provider gallery', () => {
         createElement(MemoryRouter, null, createElement(OAuthPage))
       )
     );
-    // 一张品牌卡（role=group），卡内两个站点登录入口 + 两个开放平台注册链接
-    expect(markup.match(/role="group"/g)?.length).toBe(1);
-    const card = markup.slice(markup.indexOf('role="group"'));
-    expect(card).toContain('aria-label="Kimi 国内站"');
-    expect(card).toContain('aria-label="Kimi 国际站"');
-    expect(card).toContain('>国内站</button>');
-    expect(card).toContain('>国际站</button>');
-    expect(card.match(/aria-label="注册开放平台 · Kimi /g)?.length).toBe(2);
+    // No separate brand card: the Kimi sites are tiles in the provider grid.
+    expect(markup).not.toContain('role="group"');
+    for (const provider of OAUTH_PROVIDERS.filter((entry) => entry.sponsor)) {
+      const label =
+        typeof provider.label === 'string' ? provider.label : i18n.t(provider.label.key);
+      expect(markup).toContain(`>${label}</button>`);
+    }
   });
 
   test('keeps each visible Kimi site name inside its accessible name', () => {
@@ -179,24 +177,10 @@ describe('OAuth provider gallery', () => {
         // label-in-name：语音控制说出可见文字就能命中按钮
         expect(name.toLowerCase()).toContain(region.toLowerCase());
       }
-      expect(messages.sponsor_kimi_caption).toBeTruthy();
-      expect(messages.sponsor_sign_up).toBeTruthy();
     }
   });
 
-  test('overrides per-pool animations with equal specificity under reduced motion', () => {
-    const styles = readFileSync('src/features/oauth/components/SponsorCard.module.scss', 'utf8');
-    const reducedMotionStart = styles.indexOf('@media (prefers-reduced-motion: reduce)');
-    const poolAnimationStart = styles.indexOf(".pool[data-pool='#{$name}']");
-    expect(poolAnimationStart).toBeGreaterThanOrEqual(0);
-    expect(reducedMotionStart).toBeGreaterThan(poolAnimationStart);
-    // 属性选择器与每个光池的动画规则保持同等优先级；仅 .pool 无法覆盖动画。
-    expect(styles.slice(reducedMotionStart)).toMatch(
-      /\.pool\[data-pool\]\s*,[^{}]*\{\s*animation:\s*none;/
-    );
-  });
-
-  test('keeps both Kimi registration links as safe external links', async () => {
+  test('shows no Kimi affiliate sign-up links', async () => {
     const i18n = createInstance();
     await i18n.init({ lng: 'en', resources: { en: { translation: en } } });
     const markup = renderToStaticMarkup(
@@ -208,9 +192,7 @@ describe('OAuth provider gallery', () => {
     );
     for (const url of [KIMI_CHINESE_AFFILIATE_URL, KIMI_INTERNATIONAL_AFFILIATE_URL]) {
       const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/&/g, '&amp;');
-      expect(markup).toMatch(
-        new RegExp(`href="${escaped}" target="_blank" rel="noopener noreferrer"`)
-      );
+      expect(markup).not.toMatch(new RegExp(`href="${escaped}"`));
     }
   });
 });

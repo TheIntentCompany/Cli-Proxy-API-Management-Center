@@ -55,7 +55,10 @@
     "invalid_provider_index": "유효하지 않은 공급자 인덱스입니다.",
     "unsaved_changes_title": "저장되지 않은 변경 사항",
     "unsaved_changes_message": "저장되지 않은 변경 사항이 있습니다. 지금 나가면 변경 사항이 삭제됩니다. 나가시겠습니까?",
-    "details": "자세히"
+    "details": "자세히",
+    "request_id": "요청 ID",
+    "copy_raw": "원본 복사",
+    "copied": "복사됨"
   },
   "title": {
     "login": "CLI Proxy API 관리 센터",
@@ -214,7 +217,10 @@
     "method_missing": "토큰, 지연 시간, 모델별 수치는 그리지 않습니다. 이 게이트웨이는 파일 로그와 요청 로그가 꺼져 있고 사용량 큐는 기록을 60초만 보관하며 읽으면 삭제하므로 그릴 기록이 없습니다.",
     "disabled": "비활성",
     "cooling_down": "대기 중",
-    "now": "지금"
+    "now": "지금",
+    "share_range_1h": "전체 요청 중 비율, 최근 1시간",
+    "share_range_2h": "전체 요청 중 비율, 최근 2시간",
+    "share_range_all": "전체 요청 중 비율, 최근 3시간 20분"
   },
   "limits": {
     "renews": "{{date}} 갱신",
@@ -249,7 +255,14 @@
     "credits": "크레딧: {{value}}",
     "credits_unlimited": "크레딧: 무제한",
     "reset_credits": "초기화 크레딧: {{count}}",
-    "overage": "한도 후 크레딧 사용: {{state}}"
+    "overage": "한도 후 크레딧 사용: {{state}}",
+    "grant_left": "{{total}}개 중 {{left}}개 남음",
+    "spent_of_limit": "{{limit}} 중 {{spent}} 사용",
+    "spent_no_limit": "{{spent}} 사용, 월 한도 없음",
+    "reason_out_of_credits": "크레딧이 소진되었습니다.",
+    "reset_action": "한도 초기화",
+    "reset_hint": "적립된 초기화 1회를 사용해 이 계정의 한도를 해제합니다. 실행 전에 확인합니다.",
+    "reset_dialog_title": "사용 한도 초기화"
   },
   "codex_lb": {
     "refreshed": "codex-lb를 통해 {{name}}을(를) 새로고침했습니다.",
@@ -279,7 +292,8 @@
     "status_until": "{{date}}까지 {{status}}",
     "key": "키 {{name}}",
     "key_inactive": "codex-lb 키 비활성",
-    "updated": "{{when}} 업데이트"
+    "updated": "{{when}} 업데이트",
+    "actions_unavailable": "이 계정의 작업은 아직 연결되지 않았습니다."
   },
   "dashboard": {
     "hero_verdict_good": "모든 시스템 정상",
@@ -591,7 +605,12 @@
     "quota_refresh_single": "할당량 새로 고침",
     "quota_refresh_hint": "이 자격 증명의 할당량만 새로 고침합니다",
     "quota_refresh_success": "\"{{name}}\"의 할당량을 새로 고쳤습니다",
-    "quota_refresh_failed": "\"{{name}}\"의 할당량 새로 고침 실패: {{message}}"
+    "quota_refresh_failed": "\"{{name}}\"의 할당량 새로 고침 실패: {{message}}",
+    "view_menu_label": "필터 및 보기",
+    "view_status_label": "상태",
+    "row_menu_label": "계정 작업",
+    "updated_relative": "{{when}} 업데이트됨",
+    "updated_unknown": "업데이트 시간 알 수 없음"
   },
   "antigravity_subscription": {
     "plan_unknown": "알 수 없음",
@@ -1155,7 +1174,8 @@
     "success_saved_hint": "자격 증명이 저장되었습니다. 인증 파일에서 관리할 수 있습니다.",
     "sign_up_prompt": "계정이 없나요?",
     "copied": "복사됨",
-    "other_providers": "기타 제공자"
+    "other_providers": "기타 제공자",
+    "tile_action": "로그인"
   },
   "stats": {
     "success": "성공",
@@ -1666,7 +1686,7 @@
         "add": "API 키 추가",
         "generate": "생성",
         "empty": "API 키 없음",
-        "hint": "각 항목은 하나의 API 키를 나타냅니다 ('API 키 관리' 페이지 스타일과 일치).",
+        "hint": "클라이언트는 이 키로 게이트웨이를 호출합니다.",
         "edit_title": "API 키 편집",
         "add_title": "API 키 추가",
         "input_label": "API 키",

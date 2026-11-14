@@ -5,25 +5,15 @@ import type { StatusBarData, StatusBlockDetail } from '@/utils/recentRequests';
 const defaultStyles: Record<string, string> = {};
 
 /**
- * 根据成功率 (0–1) 在三个色标之间做 RGB 线性插值
- * 0 → 红 (#ef4444)  →  0.5 → 金黄 (#facc15)  →  1 → 绿 (#22c55e)
+ * A block with no failures is a quiet neutral grey; any failures tint it red, at least
+ * enough to see, rising with the failure share. Red is the only colour on the bar, so
+ * a healthy account reads as calm and a failing one stands out.
  */
-const COLOR_STOPS = [
-  { r: 240, g: 77, b: 77 }, // T3 error #f04d4d
-  { r: 245, g: 158, b: 11 }, // T3 warning #f59e0b
-  { r: 16, g: 185, b: 129 }, // T3 success #10b981
-] as const;
-
 function rateToColor(rate: number): string {
-  const t = Math.max(0, Math.min(1, rate));
-  const segment = t < 0.5 ? 0 : 1;
-  const localT = segment === 0 ? t * 2 : (t - 0.5) * 2;
-  const from = COLOR_STOPS[segment];
-  const to = COLOR_STOPS[segment + 1];
-  const r = Math.round(from.r + (to.r - from.r) * localT);
-  const g = Math.round(from.g + (to.g - from.g) * localT);
-  const b = Math.round(from.b + (to.b - from.b) * localT);
-  return `rgb(${r}, ${g}, ${b})`;
+  const failed = 1 - Math.max(0, Math.min(1, rate));
+  if (failed <= 0) return 'var(--status-block-ok, rgba(127, 127, 127, 0.5))';
+  const share = Math.round(Math.max(0.35, failed) * 100);
+  return `color-mix(in srgb, var(--status-block-fail, #f04d4d) ${share}%, var(--status-block-ok, rgba(127, 127, 127, 0.5)))`;
 }
 
 function formatTime(timestamp: number): string {

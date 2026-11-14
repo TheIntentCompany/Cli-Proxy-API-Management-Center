@@ -221,7 +221,16 @@
 }
 
 .trail {
-  border-radius: 8px;
-  border-color: var(--t3-input);
+  width: auto;
+  height: $control-h-xs;
+  padding: 0 10px;
+  border: 1px solid var(--t3-input);
+  border-radius: 6px;
+  background: var(--t3-input-fill);
+  color: var(--t3-foreground);
+  font-size: $text-xs;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: var(--t3-highlight);
 }
 /* ===== end T3 control language ===== */
