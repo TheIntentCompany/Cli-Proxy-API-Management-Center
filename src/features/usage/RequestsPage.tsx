@@ -241,7 +241,7 @@ export function RequestsPage() {
           <thead>
             <tr>
               <th>{t('usage.col_time')}</th>
-              <th>{t('usage.col_key')}</th>
+              <th className={styles.colKey}>{t('usage.col_key')}</th>
               <th>{t('usage.col_model')}</th>
               <th>{t('usage.col_account')}</th>
               <th className={styles.num}>{t('usage.col_tokens_in_out')}</th>
@@ -262,11 +262,13 @@ export function RequestsPage() {
                     {time(row.ts)}
                   </button>
                 </td>
-                <td>
+                <td className={styles.colKey}>
                   <MiddleTruncate className={styles.cellText} value={keyLabel(row)} />
                 </td>
                 <td>
                   <MiddleTruncate className={styles.cellText} value={row.model ?? unknown} />
+                  {/* Narrow tables drop the client key column and show the key here. */}
+                  <span className={`${styles.rowSub} ${styles.keyInline}`}>{keyLabel(row)}</span>
                 </td>
                 <td>
                   <MiddleTruncate

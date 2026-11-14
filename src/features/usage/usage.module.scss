@@ -641,3 +641,32 @@
     color: var(--t3-subtle-foreground);
   }
 }
+
+/* Requests at narrower widths: the client key moves under the model. */
+.keyInline {
+  display: none;
+}
+
+@container usage (max-width: 1000px) {
+  .colKey {
+    display: none;
+  }
+
+  .keyInline {
+    display: block;
+  }
+
+  .requestsTable {
+    min-width: 640px;
+
+    th:nth-child(1) {
+      width: 140px;
+    }
+    th:nth-child(3) {
+      width: 30%;
+    }
+    th:nth-child(4) {
+      width: 34%;
+    }
+  }
+}

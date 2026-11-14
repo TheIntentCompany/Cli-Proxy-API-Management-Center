@@ -10,6 +10,7 @@ export const formatTokens = (value: number): string => {
 
 export const formatUsd = (value: number): string => {
   const abs = Math.abs(value);
+  if (abs > 0 && abs < 0.001) return '<$0.001';
   const digits = abs >= 100 ? 0 : abs >= 1 ? 2 : abs > 0 ? 3 : 2;
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
