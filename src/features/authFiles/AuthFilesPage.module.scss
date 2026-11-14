@@ -138,3 +138,63 @@
   flex-direction: column;
   gap: 8px;
 }
+
+/* One list for every account: limits, actions and use in the chosen range on each row.
+   The list is the "limits" size container the rows lay out against. */
+.accountList {
+  container: limits / inline-size;
+  --limits-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 176px;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--t3-border);
+}
+
+.columns {
+  display: none;
+  grid-template-columns: var(--limits-columns);
+  column-gap: 24px;
+  padding: 0 0 8px;
+  color: var(--t3-muted-foreground);
+  font-size: $text-xs;
+}
+
+@container limits (min-width: 1000px) {
+  .columns {
+    display: grid;
+  }
+}
+
+.cardItem {
+  padding: 12px 0;
+  border-top: 1px solid var(--t3-border);
+}
+
+.rangeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.rangeLabel {
+  color: var(--t3-muted-foreground);
+  font-size: $text-sm;
+}
+
+.readLimits {
+  @include t3-button(outline, md);
+  margin-left: auto;
+}
+
+.spinning {
+  animation: accounts-spin 0.8s linear infinite;
+}
+
+@keyframes accounts-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

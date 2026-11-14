@@ -317,3 +317,37 @@
     animation: none;
   }
 }
+
+/* Accounts page: the row's own controls under its limit actions. */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+@container limits (max-width: 999px) {
+  .controls {
+    margin-top: 0;
+  }
+}
+
+.usage {
+  color: var(--t3-muted-foreground);
+  font-size: $text-xs;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Without the column headers (narrower than 1000px) each meter names its window. */
+@container limits (max-width: 999px) {
+  .meter [class*='srOnly'] {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0 auto 0 0;
+    clip: auto;
+    overflow: visible;
+    color: var(--t3-muted-foreground);
+  }
+}

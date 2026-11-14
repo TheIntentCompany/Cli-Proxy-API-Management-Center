@@ -1,0 +1,24 @@
+@use '../../../styles/mixins' as *;
+
+.notices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.selection {
+  flex: none;
+  margin-top: 1px;
+}
+
+.models {
+  height: $control-h-xs !important;
+  padding: 0 8px !important;
+  font-size: $text-xs !important;
+}
+
+.toggle {
+  display: inline-flex;
+  margin-left: auto;
+}

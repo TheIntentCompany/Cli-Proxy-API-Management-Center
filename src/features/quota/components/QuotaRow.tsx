@@ -53,6 +53,14 @@ export interface QuotaRowProps {
   creditOverageSharedCount?: number;
   onRefresh: () => void;
   onReset: () => void;
+  /** Accounts page: the row's selection checkbox, before the swatch. */
+  selection?: ReactNode;
+  /** Accounts page: status and cooldown notices, shown above the details. */
+  notices?: ReactNode;
+  /** Accounts page: Models, the credential menu and the Enabled switch. */
+  controls?: ReactNode;
+  /** Requests, tokens and cost in the chosen range, from the usage collector. */
+  usage?: ReactNode;
 }
 
 const COLOR = {
@@ -95,6 +103,10 @@ export function QuotaRow({
   creditOverageSharedCount = 1,
   onRefresh,
   onReset,
+  selection,
+  notices,
+  controls,
+  usage,
 }: QuotaRowProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
@@ -416,6 +428,7 @@ export function QuotaRow({
   return (
     <li className={styles.row} aria-busy={loading || undefined}>
       <div className={styles.account}>
+        {selection}
         <span className={styles.swatch} style={{ background: COLOR[family] }} aria-hidden="true" />
         <div className={styles.accountText}>
           <MiddleTruncate className={styles.name} value={title} />
@@ -425,6 +438,7 @@ export function QuotaRow({
             {file.disabled && <Badge>{t('limits.disabled')}</Badge>}
           </span>
           {statusLine && <span className={styles.status}>{statusLine}</span>}
+          {usage && <span className={styles.usage}>{usage}</span>}
         </div>
       </div>
 
@@ -525,10 +539,12 @@ export function QuotaRow({
             {t('limits.reset_action')}
           </button>
         )}
+        {controls && <div className={styles.controls}>{controls}</div>}
       </div>
 
-      {(facts.length > 0 || status === 'error' || claudeReset.message) && (
+      {(facts.length > 0 || status === 'error' || claudeReset.message || notices) && (
         <div className={styles.details}>
+          {notices}
           {status === 'error' && (
             <ErrorNotice
               error={t(`${adapter.i18nPrefix}.load_failed`, { message: errorMessage })}

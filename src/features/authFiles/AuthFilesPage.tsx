@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useInterval } from '@/hooks/useInterval';
@@ -19,6 +27,23 @@ import {
   type ResolvedTheme,
 } from '@/features/authFiles/constants';
 import { AuthFileCard } from '@/features/authFiles/components/AuthFileCard';
+import { AccountRow } from '@/features/authFiles/components/AccountRow';
+import { classifyQuotaFiles, type QuotaFileEntry } from '@/features/quota/logic';
+import { QUOTA_ADAPTERS, type QuotaCardState } from '@/features/quota/providers';
+import type { QuotaProviderType } from '@/features/quota/providers/types';
+import { useQuotaActions } from '@/features/quota/hooks/useQuotaActions';
+import { useQuotaBatchLoader } from '@/features/quota/hooks/useQuotaBatchLoader';
+import {
+  codexCreditOverageKey,
+  countCodexCreditOverageKeys,
+} from '@/features/quota/providers/codex/creditOverage';
+import { totalTokens, type UsageGroup } from '@/services/api/usage';
+import { formatCount, formatTokens, formatUsd } from '@/features/usage/format';
+import { useUsageSummary } from '@/features/usage/hooks';
+import { RangePicker } from '@/features/usage/RangePicker';
+import { resolveRange, useUsageRange } from '@/features/usage/range';
+import { useNow } from '@/hooks/useNow';
+import { IconRefreshCw } from '@/components/ui/icons';
 import { CodexLbRow } from '@/features/quota/components/CodexLbRow';
 import { codexLbAccountName, flattenCodexLbAccounts } from '@/services/api/codexLb';
 import { useCodexLbStatus } from '@/hooks/useCodexLbStatus';
@@ -54,7 +79,7 @@ import {
   type AuthFilesStatusFilterMode,
   type AuthFilesSortMode,
 } from '@/features/authFiles/uiState';
-import { useAuthStore, useNotificationStore, useThemeStore } from '@/stores';
+import { useAuthStore, useNotificationStore, useQuotaStore, useThemeStore } from '@/stores';
 import styles from './AuthFilesPage.module.scss';
 
 const DEFAULT_REGULAR_PAGE_SIZE = 9;
@@ -85,7 +110,6 @@ export function AuthFilesPage() {
     () => flattenCodexLbAccounts(codexLbStatus?.keys),
     [codexLbStatus]
   );
-  const upstreamHeadingId = useId();
   const showNotification = useNotificationStore((state) => state.showNotification);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
@@ -506,6 +530,89 @@ export function AuthFilesPage() {
   const activeCount = useMemo(() => files.filter((file) => file.disabled !== true).length, [files]);
   const problemCount = useMemo(() => files.filter(isProblemAuthFile).length, [files]);
 
+  /* ---------- Limits on each account (formerly the Limits page) ---------- */
+
+  const sessionGeneration = useQuotaStore((state) => state.cacheGeneration);
+  const claudeQuota = useQuotaStore((state) => state.claudeQuota);
+  const codexQuota = useQuotaStore((state) => state.codexQuota);
+  const quotaEntries = useMemo(() => classifyQuotaFiles(files), [files]);
+  const entryByName = useMemo(
+    () => new Map(quotaEntries.map((entry) => [entry.file.name, entry])),
+    [quotaEntries]
+  );
+  const quotaFor = useCallback(
+    (entry: QuotaFileEntry): QuotaCardState | undefined => {
+      const byType: Partial<Record<QuotaProviderType, Record<string, unknown>>> = {
+        claude: claudeQuota,
+        codex: codexQuota,
+      };
+      return byType[entry.type]?.[getQuotaCacheKey(entry.file)] as QuotaCardState | undefined;
+    },
+    [claudeQuota, codexQuota]
+  );
+  const codexCreditOverageCounts = useMemo(
+    () =>
+      countCodexCreditOverageKeys(
+        quotaEntries.filter((entry) => entry.type === 'codex').map((entry) => entry.file)
+      ),
+    [quotaEntries]
+  );
+  const { batchLoading, loadQuota } = useQuotaBatchLoader();
+  const { resettingQuotaName, refreshQuota, resetQuota } = useQuotaActions(disableControls);
+  const limitEntries = useMemo(
+    () => quotaEntries.filter((entry) => entry.type === 'claude' || entry.type === 'codex'),
+    [quotaEntries]
+  );
+  // Read every Claude and Codex account's limits once per session, so plans, meters and
+  // banked resets are on screen without a click. Accounts already read stay cached.
+  const autoReadSessionRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (disableControls || loading || batchLoading || error) return;
+    if (autoReadSessionRef.current === sessionGeneration) return;
+    autoReadSessionRef.current = sessionGeneration;
+    const unread = limitEntries.filter(
+      (entry) => !entry.file.disabled && (quotaFor(entry)?.status ?? 'idle') === 'idle'
+    );
+    if (unread.length > 0) void loadQuota(unread);
+  }, [
+    batchLoading,
+    disableControls,
+    error,
+    limitEntries,
+    loadQuota,
+    loading,
+    quotaFor,
+    sessionGeneration,
+  ]);
+  const readAllLimits = () => {
+    if (!disableControls) void loadQuota(limitEntries.filter((entry) => !entry.file.disabled));
+  };
+
+  /* ---------- Use in the chosen range, from the usage collector ---------- */
+
+  const now = useNow();
+  const { range, setRange } = useUsageRange();
+  const usageRange = useMemo(() => resolveRange(range, now, null), [range, now]);
+  const usageFilters = useMemo(() => ({ from: usageRange.from, to: usageRange.to }), [usageRange]);
+  const { summary: usageSummary } = useUsageSummary(usageFilters, usageRange.bucket);
+  const usageByAccount = useMemo(() => {
+    const map = new Map<string, UsageGroup>();
+    usageSummary?.byAccount.forEach((group) => {
+      if (group.id) map.set(group.id, group);
+      if (group.via && group.label) map.set(`label:${group.label.toLowerCase()}`, group);
+    });
+    return map;
+  }, [usageSummary]);
+  const usageLine = (group: UsageGroup | undefined): ReactNode => {
+    if (!usageSummary) return null;
+    if (!group || group.requests === 0) return t('accounts.usage_none');
+    return t('accounts.usage_line', {
+      requests: formatCount(group.requests),
+      tokens: formatTokens(totalTokens(group)),
+      cost: formatUsd(group.costUsd),
+    });
+  };
+
   /* ---------- 首屏卡片一次性级联入场 ----------
    * 首批数据渲染后立即翻转 cardsAnimated；已挂载的卡片在挂载时捕获过
    * 自己的延迟（AuthFileCard 内 useState 初始化），不受后续 null 影响，
@@ -595,11 +702,8 @@ export function AuthFilesPage() {
   const oauthSectionRef = useRevealOnScroll<HTMLDivElement>();
 
   const isFirstRunEmpty = !loading && files.length === 0 && !error;
-  const isNoResults = !loading && files.length > 0 && pageItems.length === 0;
-
-  const gridClasses = [styles.grid, compactMode ? styles.gridCompact : '']
-    .filter(Boolean)
-    .join(' ');
+  const isNoResults =
+    !loading && files.length > 0 && pageItems.length === 0 && visibleCodexLbAccounts.length === 0;
 
   return (
     <div className={styles.page}>
@@ -676,6 +780,21 @@ export function AuthFilesPage() {
           }
         />
 
+        <div className={styles.rangeRow}>
+          <span className={styles.rangeLabel}>{t('accounts.usage_range_label')}</span>
+          <RangePicker range={range} onChange={setRange} />
+          <button
+            type="button"
+            className={styles.readLimits}
+            onClick={readAllLimits}
+            disabled={disableControls || batchLoading || limitEntries.length === 0}
+            title={t('accounts.read_limits_hint')}
+          >
+            <IconRefreshCw size={13} className={batchLoading ? styles.spinning : undefined} />
+            {t('accounts.read_limits')}
+          </button>
+        </div>
+
         {error && (
           <div className={styles.errorBanner} role="alert">
             {error}
@@ -718,34 +837,93 @@ export function AuthFilesPage() {
             }
           />
         ) : (
-          <div className={gridClasses}>
-            {pageItems.map((file, index) => (
-              <AuthFileCard
-                key={getQuotaCacheKey(file)}
-                file={file}
-                compact={compactMode}
-                selected={selectedFiles.has(file.name)}
-                resolvedTheme={resolvedTheme}
-                disableControls={disableControls}
-                deleting={deleting}
-                statusUpdating={statusUpdating}
-                manualRefreshing={manualRefreshing}
-                cooldownResetting={cooldownResetting}
-                // Limits live on their own page now; account rows stay about access.
-                quotaFilterType={null}
-                statusBarCache={statusBarCache}
-                entranceDelayMs={cardEntranceDelay(index)}
-                onShowModels={showModels}
-                onDownload={handleDownload}
-                onManualRefresh={handleManualRefresh}
-                onCooldownReset={handleCooldownReset}
-                onOpenPrefixProxyEditor={openPrefixProxyEditor}
-                onDelete={handleDelete}
-                onToggleStatus={handleStatusToggle}
-                onToggleSelect={toggleSelect}
+          <ul className={styles.accountList}>
+            <li className={styles.columns} aria-hidden="true">
+              <span>{t('limits.col_account')}</span>
+              <span>{t('limits.col_five_hour')}</span>
+              <span>{t('limits.col_weekly')}</span>
+              <span>{t('limits.col_models')}</span>
+              <span />
+            </li>
+            {pageItems.map((file, index) => {
+              const entry = entryByName.get(file.name);
+              const usage = usageLine(
+                typeof file.authIndex === 'string' ? usageByAccount.get(file.authIndex) : undefined
+              );
+              if (entry && (entry.type === 'claude' || entry.type === 'codex')) {
+                return (
+                  <AccountRow
+                    key={getQuotaCacheKey(file)}
+                    file={file}
+                    entry={entry}
+                    quota={quotaFor(entry)}
+                    canRefresh={!disableControls && !loading && !file.disabled}
+                    resetting={resettingQuotaName === getQuotaCacheKey(file)}
+                    creditOverageSharedCount={
+                      entry.type === 'codex'
+                        ? codexCreditOverageCounts.get(codexCreditOverageKey(file) ?? '')
+                        : undefined
+                    }
+                    onRefreshQuota={() => void refreshQuota(file, QUOTA_ADAPTERS[entry.type])}
+                    onResetQuota={() => resetQuota(file, QUOTA_ADAPTERS[entry.type])}
+                    selected={selectedFiles.has(file.name)}
+                    disableControls={disableControls}
+                    deleting={deleting}
+                    statusUpdating={statusUpdating}
+                    manualRefreshing={manualRefreshing}
+                    cooldownResetting={cooldownResetting}
+                    usage={usage}
+                    onToggleSelect={toggleSelect}
+                    onShowModels={showModels}
+                    onDownload={handleDownload}
+                    onManualRefresh={handleManualRefresh}
+                    onCooldownReset={handleCooldownReset}
+                    onOpenPrefixProxyEditor={openPrefixProxyEditor}
+                    onDelete={handleDelete}
+                    onToggleStatus={handleStatusToggle}
+                  />
+                );
+              }
+              // Providers without limit readings keep the plain account card.
+              return (
+                <li key={getQuotaCacheKey(file)} className={styles.cardItem}>
+                  <AuthFileCard
+                    file={file}
+                    compact={compactMode}
+                    selected={selectedFiles.has(file.name)}
+                    resolvedTheme={resolvedTheme}
+                    disableControls={disableControls}
+                    deleting={deleting}
+                    statusUpdating={statusUpdating}
+                    manualRefreshing={manualRefreshing}
+                    cooldownResetting={cooldownResetting}
+                    quotaFilterType={null}
+                    statusBarCache={statusBarCache}
+                    entranceDelayMs={cardEntranceDelay(index)}
+                    onShowModels={showModels}
+                    onDownload={handleDownload}
+                    onManualRefresh={handleManualRefresh}
+                    onCooldownReset={handleCooldownReset}
+                    onOpenPrefixProxyEditor={openPrefixProxyEditor}
+                    onDelete={handleDelete}
+                    onToggleStatus={handleStatusToggle}
+                    onToggleSelect={toggleSelect}
+                  />
+                </li>
+              );
+            })}
+            {visibleCodexLbAccounts.map(({ account, keyInfo }) => (
+              <CodexLbRow
+                key={`codex-lb:${account.id}`}
+                account={account}
+                keyInfo={keyInfo}
+                usage={usageLine(
+                  usageByAccount.get(`label:${(account.email ?? '').toLowerCase()}`)
+                )}
+                onChanged={() => void refreshCodexLb(true)}
               />
             ))}
-          </div>
+          </ul>
         )}
 
         {!loading && sorted.length > pageSize && (
@@ -776,25 +954,6 @@ export function AuthFilesPage() {
           </div>
         )}
       </section>
-
-      {visibleCodexLbAccounts.length > 0 && (
-        <section className={styles.upstreamSection} aria-labelledby={upstreamHeadingId}>
-          <h2 className={styles.upstreamTitle} id={upstreamHeadingId}>
-            {t('codex_lb.section_title')}
-          </h2>
-          <p className={styles.upstreamNote}>{t('codex_lb.section_note')}</p>
-          <ul className={styles.upstreamList}>
-            {visibleCodexLbAccounts.map(({ account, keyInfo }) => (
-              <CodexLbRow
-                key={account.id}
-                account={account}
-                keyInfo={keyInfo}
-                onChanged={() => void refreshCodexLb(true)}
-              />
-            ))}
-          </ul>
-        </section>
-      )}
 
       <div className={styles.configGrid} ref={oauthSectionRef}>
         <OAuthExcludedCard

@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "last_drain_at": 1794614401000,
+  "last_drain_count": 1,
+  "records_total": 1,
+  "first_record_at": 1794614400123,
+  "oldest_raw_at": 1794614400123,
+  "collector_started_at": 1794614400000,
+  "db_bytes": 65536,
+  "disk_free_bytes": 1000000000,
+  "price_source": {
+    "fetched_at": "2026-11-14",
+    "name": "LiteLLM",
+    "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+  }
+}

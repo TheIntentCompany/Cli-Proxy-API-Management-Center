@@ -1,0 +1,32 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "ts": 1794614400123,
+      "source_origin": "gateway",
+      "alias": "sonnet",
+      "stream": true,
+      "input_uncached": 100,
+      "cache_read": 20,
+      "cache_write_5m": 7,
+      "cache_write_1h": 5,
+      "output": 30,
+      "reasoning": 10,
+      "cost_usd": 0.00081225,
+      "latency_ms": 250,
+      "ttft_ms": 75,
+      "status_code": 200,
+      "failed": false,
+      "error": null,
+      "provider": "claude",
+      "model": "claude-sonnet-4-5",
+      "account_id": "0123456789abcdef",
+      "account_label": "fixture@example.invalid",
+      "via": "",
+      "key_id": "88f361466da3eeb6",
+      "key_masked": "sk******12",
+      "endpoint": "POST /v1/messages"
+    }
+  ],
+  "next_before": null
+}

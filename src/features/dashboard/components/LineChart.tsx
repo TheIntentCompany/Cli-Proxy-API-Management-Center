@@ -33,6 +33,11 @@ interface LineChartProps {
   markers?: LineMarker[];
   markerColor?: string;
   extraRows?: (index: number) => Array<{ label: string; value: string }>;
+  /**
+   * Text beside each line's end label. Defaults to the last point's value; pass the range
+   * total instead when the headline above the chart is a total, so the two agree.
+   */
+  endValue?: (seriesId: string) => string;
 }
 
 const MARGIN = { top: 14, right: 132, bottom: 30, left: 44 };
@@ -88,6 +93,7 @@ export function LineChart({
   markers = [],
   markerColor = 'var(--viz-failure)',
   extraRows,
+  endValue,
 }: LineChartProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -259,7 +265,7 @@ export function LineChart({
               <text x={label.x + 42} y={label.labelY} dy="0.32em" className={styles.endLabel}>
                 {label.label}
                 <tspan className={styles.endValue} dx={6}>
-                  {valueFormat(label.value)}
+                  {endValue ? endValue(label.id) : valueFormat(label.value)}
                 </tspan>
               </text>
             </g>

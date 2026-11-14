@@ -1,0 +1,117 @@
+{
+  "totals": {
+    "requests": 1,
+    "failed": 0,
+    "input_uncached": 100,
+    "cache_read": 20,
+    "output": 30,
+    "reasoning": 10,
+    "cost_usd": 0.00081225,
+    "unpriced_requests": 0,
+    "cache_write": 12,
+    "latency_p50_ms": 347,
+    "latency_p95_ms": 347,
+    "ttft_p50_ms": 100
+  },
+  "series": [
+    {
+      "t": 1794614400000,
+      "requests": 1,
+      "failed": 0,
+      "input_uncached": 100,
+      "cache_read": 20,
+      "output": 30,
+      "reasoning": 10,
+      "cost_usd": 0.00081225,
+      "cache_write": 12,
+      "by_provider": {
+        "claude": {
+          "requests": 1,
+          "tokens": 162,
+          "cost_usd": 0.00081225
+        }
+      }
+    }
+  ],
+  "by_model": [
+    {
+      "model": "claude-sonnet-4-5",
+      "requests": 1,
+      "failed": 0,
+      "input_uncached": 100,
+      "cache_read": 20,
+      "output": 30,
+      "reasoning": 10,
+      "cost_usd": 0.00081225,
+      "unpriced_requests": 0,
+      "cache_write": 12,
+      "latency_p50_ms": 347,
+      "latency_p95_ms": 347,
+      "ttft_p50_ms": 100
+    }
+  ],
+  "by_account": [
+    {
+      "account_id": "0123456789abcdef",
+      "label": "fixture@example.invalid",
+      "provider": "claude",
+      "via": "",
+      "requests": 1,
+      "failed": 0,
+      "input_uncached": 100,
+      "cache_read": 20,
+      "output": 30,
+      "reasoning": 10,
+      "cost_usd": 0.00081225,
+      "unpriced_requests": 0,
+      "cache_write": 12,
+      "latency_p50_ms": 347,
+      "latency_p95_ms": 347,
+      "ttft_p50_ms": 100
+    }
+  ],
+  "by_key": [
+    {
+      "key_id": "88f361466da3eeb6",
+      "key_masked": "sk******12",
+      "requests": 1,
+      "failed": 0,
+      "input_uncached": 100,
+      "cache_read": 20,
+      "output": 30,
+      "reasoning": 10,
+      "cost_usd": 0.00081225,
+      "unpriced_requests": 0,
+      "cache_write": 12,
+      "latency_p50_ms": 347,
+      "latency_p95_ms": 347,
+      "ttft_p50_ms": 100
+    }
+  ],
+  "by_provider": [
+    {
+      "provider": "claude",
+      "requests": 1,
+      "failed": 0,
+      "input_uncached": 100,
+      "cache_read": 20,
+      "output": 30,
+      "reasoning": 10,
+      "cost_usd": 0.00081225,
+      "unpriced_requests": 0,
+      "cache_write": 12,
+      "latency_p50_ms": 347,
+      "latency_p95_ms": 347,
+      "ttft_p50_ms": 100
+    }
+  ],
+  "coverage": {
+    "first_record_at": 1794614400123,
+    "oldest_raw_at": 1794614400123
+  },
+  "price_source": {
+    "fetched_at": "2026-11-14",
+    "name": "LiteLLM",
+    "url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+  }
+}

@@ -1,635 +1,571 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+/**
+ * Overview: what this gateway served over a chosen range, from the usage collector's
+ * request history. Modelled on T3 Code's usage page (MIT, see THIRD_PARTY_NOTICES.md):
+ * one headline figure with its split by provider, the same figure over time, where the
+ * tokens went, how healthy the traffic was, and a breakdown by model, account, client key
+ * or time. Every figure answers a question someone running the gateway asks.
+ */
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAuthStore, useQuotaStore } from '@/stores';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useNavigate } from 'react-router-dom';
+import { ErrorNotice, MiddleTruncate } from '@/components/ui/t3';
 import { useNow } from '@/hooks/useNow';
-import { useCodexLbStatus } from '@/hooks/useCodexLbStatus';
-import { LimitMeter } from '@/components/ui/LimitMeter';
-import { formatCompactNumber } from '@/utils/format';
-import { formatRelative, formatShortDateTime } from '@/utils/relativeTime';
-import { classifyQuotaFiles } from '@/features/quota/logic';
-import { useQuotaBatchLoader } from '@/features/quota/hooks/useQuotaBatchLoader';
-import { useDashboardOverview } from './hooks/useDashboardOverview';
-import { LineChart, type LineSeries } from './components/LineChart';
 import {
-  BUCKETS_PER_WINDOW,
-  RANGE_OPTIONS,
-  bucketEndsMinutesAgo,
-  buildAccountRows,
-  buildApiKeyRows,
-  withoutApiKeyDuplicates,
-  claudeCodexSplit,
-  combineBuckets,
-  seriesByFamily,
-  successRateSeries,
-  sumBuckets,
-  type AccountRow,
-  type LimitReading,
-  type ProviderFamily,
-} from './insights';
-import styles from './dashboard.module.scss';
+  cacheHitRate,
+  errorRate,
+  totalTokens,
+  type TokenTotals,
+  type UsageGroup,
+} from '@/services/api/usage';
+import {
+  formatCount,
+  formatMs,
+  formatPercent,
+  formatTokens,
+  formatUsd,
+} from '@/features/usage/format';
+import { useClientKeyNames, useUsageSummary } from '@/features/usage/hooks';
+import { RangePicker } from '@/features/usage/RangePicker';
+import { resolveRange, useUsageRange } from '@/features/usage/range';
+import { ShareBar } from '@/features/usage/ShareBar';
+import { bucketLabel, evenTicks, providerColor, providerName } from '@/features/usage/chart';
+import { Stat } from '@/features/usage/Stat';
+import { ModelDialog } from '@/features/usage/ModelDialog';
+import { LineChart } from './components/LineChart';
+import styles from '@/features/usage/usage.module.scss';
 
-type Metric = 'requests' | 'success';
+type Metric = 'tokens' | 'cost' | 'requests';
+type Breakdown = 'model' | 'account' | 'key' | 'time';
 
-const FAMILY_COLOR: Record<ProviderFamily, string> = {
-  claude: 'var(--viz-claude)',
-  codex: 'var(--viz-codex)',
-  other: 'var(--viz-other)',
+const METRIC_KEY = 'intent.usage.metric';
+const TOKEN_COLORS = {
+  uncached: 'var(--viz-codex)',
+  cacheRead: 'color-mix(in srgb, var(--viz-codex) 45%, transparent)',
+  cacheWrite: 'var(--viz-claude)',
+  output: 'var(--t3-primary)',
 };
 
-const DASH = '–';
-
-const formatCount = (value: number): string =>
-  value < 10_000 ? Math.round(value).toLocaleString() : formatCompactNumber(value);
-
-const formatShare = (value: number): string => `${value.toFixed(1)}%`;
+const metricValue = (totals: TokenTotals, metric: Metric) =>
+  metric === 'tokens' ? totalTokens(totals) : metric === 'cost' ? totals.costUsd : totals.requests;
 
 export function DashboardPage() {
   const { t, i18n } = useTranslation();
-  const locale = i18n.language;
-  // Minute clock: relative labels stay current without re-rendering every frame.
+  const navigate = useNavigate();
+  const locale = i18n.resolvedLanguage;
   const now = useNow();
-  const serverVersion = useAuthStore((state) => state.serverVersion);
-  const claudeQuota = useQuotaStore((state) => state.claudeQuota);
-  const codexQuota = useQuotaStore((state) => state.codexQuota);
-  const { connected, config, authFiles, authFilesLoadedAt, usageByProvider, refresh } =
-    useDashboardOverview();
-  const { status: codexLbStatus } = useCodexLbStatus();
-  const { batchLoading, loadQuota } = useQuotaBatchLoader();
-
-  useHeaderRefresh(refresh, connected);
-
-  const [metric, setMetric] = useState<Metric>('requests');
-  const [rangeId, setRangeId] = useState('all');
-  const [hiddenFamilies, setHiddenFamilies] = useState<Set<ProviderFamily>>(new Set());
-  const [hiddenAccounts, setHiddenAccounts] = useState<Set<string>>(new Set());
-
-  const range = RANGE_OPTIONS.find((option) => option.id === rangeId) ?? RANGE_OPTIONS[2];
-  const familyName = (family: ProviderFamily) => t(`insights.family_${family}`);
-
-  // OAuth credentials plus API-key credentials; an API key that reaches a codex-lb
-  // account is named after that account.
-  const rows = useMemo(
-    () => [
-      ...buildAccountRows(withoutApiKeyDuplicates(authFiles ?? [], usageByProvider), {
-        claude: claudeQuota,
-        codex: codexQuota,
-      }),
-      ...buildApiKeyRows(usageByProvider, codexLbStatus, {
-        viaCodexLb: (accounts) => t('insights.via_codex_lb', { accounts }),
-        apiKey: (masked) => t('insights.api_key', { key: masked }),
-      }),
-    ],
-    [authFiles, usageByProvider, codexLbStatus, claudeQuota, codexQuota, t]
-  );
-
-  const familiesPresent = useMemo(
-    () =>
-      (['claude', 'codex', 'other'] as ProviderFamily[]).filter((f) =>
-        rows.some((r) => r.family === f)
-      ),
-    [rows]
-  );
-
-  const visibleRows = useMemo(
-    () => rows.filter((row) => !hiddenFamilies.has(row.family) && !hiddenAccounts.has(row.key)),
-    [rows, hiddenFamilies, hiddenAccounts]
-  );
-
-  const familySeries = useMemo(
-    () => seriesByFamily(visibleRows, range.buckets),
-    [visibleRows, range]
-  );
-  const allFamilySeries = useMemo(() => seriesByFamily(rows, range.buckets), [rows, range]);
-  const combined = useMemo(() => combineBuckets(visibleRows, range.buckets), [visibleRows, range]);
-  const totals = sumBuckets(combined);
-  const requests = totals.success + totals.failed;
-  const successRate = requests > 0 ? (totals.success / requests) * 100 : null;
-  const split = claudeCodexSplit(familySeries);
-  const grandTotal = allFamilySeries.reduce((sum, item) => sum + item.total, 0);
-
-  const count = range.buckets;
-  const xLabel = (index: number) => {
-    const ago = bucketEndsMinutesAgo(index, count);
-    return ago === 0 ? t('insights.now') : formatRelative(now - ago * 60_000, now, locale);
+  const { range, setRange } = useUsageRange();
+  const [metric, setMetricState] = useState<Metric>(() => {
+    const stored = localStorage.getItem(METRIC_KEY);
+    return stored === 'cost' || stored === 'requests' ? stored : 'tokens';
+  });
+  const setMetric = (next: Metric) => {
+    setMetricState(next);
+    localStorage.setItem(METRIC_KEY, next);
   };
-  const xTicks = useMemo(() => {
-    const step = count <= 6 ? 1 : count <= 12 ? 3 : 6;
-    const ticks: number[] = [];
-    for (let index = count - 1; index >= 0; index -= step) ticks.unshift(index);
-    if (ticks[0] !== 0 && ticks[0] > step / 2) ticks.unshift(0);
-    else if (ticks[0] !== 0) ticks[0] = 0;
-    return ticks;
-  }, [count]);
+  const [breakdown, setBreakdown] = useState<Breakdown>('model');
+  const [firstRecordAt, setFirstRecordAt] = useState<number | null>(null);
+  const [modelOpen, setModelOpen] = useState<string | null>(null);
 
-  const chartSeries: LineSeries[] =
-    metric === 'requests'
-      ? familySeries.map((item) => ({
-          id: item.family,
-          label: familyName(item.family),
-          color: FAMILY_COLOR[item.family],
-          values: item.values,
-          // No fill: one translucent area per series hid Claude under Codex.
-          area: false,
-        }))
-      : [
-          {
-            id: 'success',
-            label: t('insights.success_rate'),
-            color: 'var(--viz-codex)',
-            values: successRateSeries(combined),
-          },
-        ];
-
-  const failureMarkers =
-    metric === 'success'
-      ? combined
-          .map((bucket, index) => ({ bucket, index }))
-          .filter(({ bucket }) => bucket.failed > 0)
-          .map(({ index }) => ({ index, seriesId: 'success' }))
-      : [];
-
-  const limitRows = useMemo(
-    () =>
-      visibleRows
-        .filter((row) => row.family !== 'other')
-        .sort(
-          (a, b) => (b.limits.weekly?.usedPercent ?? -1) - (a.limits.weekly?.usedPercent ?? -1)
-        ),
-    [visibleRows]
+  const resolved = useMemo(
+    () => resolveRange(range, now, firstRecordAt),
+    [range, now, firstRecordAt]
   );
+  const filters = useMemo(() => ({ from: resolved.from, to: resolved.to }), [resolved]);
+  const { summary, error, loading } = useUsageSummary(filters, resolved.bucket);
+  const keyNames = useClientKeyNames();
 
-  const servedRows = useMemo(
-    () =>
-      visibleRows
-        .map((row) => ({ row, window: sumBuckets(row.buckets.slice(-range.buckets)) }))
-        .sort(
-          (a, b) =>
-            b.window.success + b.window.failed - (a.window.success + a.window.failed) ||
-            b.row.sinceStart.success - a.row.sinceStart.success
-        ),
-    [visibleRows, range]
-  );
-  const servedPeak = Math.max(1, ...servedRows.map(({ window }) => window.success + window.failed));
-
-  const readLimits = () => {
-    if (!authFiles) return;
-    const targets = classifyQuotaFiles(authFiles).filter(
-      (entry) => entry.type === 'claude' || entry.type === 'codex'
+  // "All time" starts at the earliest stored row: the codex-lb backfill can predate the
+  // gateway queue's first record.
+  const earliest = useMemo(() => {
+    const dates = [summary?.firstRecordAtMs, summary?.oldestRawAtMs].filter(
+      (value): value is number => typeof value === 'number' && value > 0
     );
-    void loadQuota(targets);
+    return dates.length > 0 ? Math.min(...dates) : null;
+  }, [summary?.firstRecordAtMs, summary?.oldestRawAtMs]);
+  useEffect(() => {
+    if (earliest) setFirstRecordAt(earliest);
+  }, [earliest]);
+
+  const unknown = t('usage.unknown');
+  const format = (value: number, which: Metric = metric) =>
+    which === 'tokens'
+      ? formatTokens(value)
+      : which === 'cost'
+        ? formatUsd(value)
+        : formatCount(value);
+
+  const totals = summary?.totals;
+  const providers = useMemo(
+    () =>
+      [...(summary?.byProvider ?? [])]
+        .filter((group) => group.requests > 0)
+        .sort((a, b) => metricValue(b, metric) - metricValue(a, metric)),
+    [summary, metric]
+  );
+  const grand = totals ? metricValue(totals, metric) : 0;
+
+  const gatewayStart = summary?.firstRecordAtMs ?? null;
+  const bucketMs = resolved.bucket === 'hour' ? 3_600_000 : 86_400_000;
+  const series = useMemo(
+    () =>
+      providers.map((group) => ({
+        id: group.id,
+        label: providerName(group.id, unknown),
+        color: providerColor(group.id),
+        values: (summary?.series ?? []).map((bucket) => {
+          const entry = bucket.byProvider[group.id];
+          // Before the gateway's history begins, an empty bucket means "not recorded",
+          // not "no traffic": leave a gap instead of drawing zero.
+          if (
+            (!entry || entry.requests === 0) &&
+            gatewayStart !== null &&
+            bucket.t + bucketMs <= gatewayStart
+          ) {
+            return null;
+          }
+          if (!entry) return 0;
+          return metric === 'tokens'
+            ? entry.tokens
+            : metric === 'cost'
+              ? entry.costUsd
+              : entry.requests;
+        }),
+      })),
+    [providers, summary, metric, unknown, gatewayStart, bucketMs]
+  );
+  const buckets = summary?.series ?? [];
+  const startsBeforeHistory = gatewayStart !== null && resolved.from < gatewayStart;
+
+  const chartTitle = t(`usage.chart_${metric}_${resolved.bucket}`);
+  const empty = summary !== null && (totals?.requests ?? 0) === 0;
+
+  const groupsFor = (which: Breakdown): UsageGroup[] => {
+    const list =
+      which === 'model'
+        ? summary?.byModel
+        : which === 'account'
+          ? summary?.byAccount
+          : summary?.byKey;
+    return [...(list ?? [])].sort((a, b) => metricValue(b, metric) - metricValue(a, metric));
   };
+  const groupLabel = (which: Breakdown, group: UsageGroup) =>
+    which === 'key' ? (keyNames[group.id] ?? group.label) : group.label || unknown;
 
-  const toggleFamily = (family: ProviderFamily) =>
-    setHiddenFamilies((current) => {
-      const next = new Set(current);
-      if (next.has(family)) next.delete(family);
-      else next.add(family);
-      return next;
+  const when = (ms: number) =>
+    new Date(ms).toLocaleString(locale, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
     });
-  const toggleAccount = (key: string) =>
-    setHiddenAccounts((current) => {
-      const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-
-  const limitDetail = (reading: LimitReading | null): string => {
-    if (!reading) return '';
-    const parts: string[] = [];
-    if (reading.resetAtMs) {
-      parts.push(t('insights.resets', { when: formatRelative(reading.resetAtMs, now, locale) }));
-    }
-    return parts.join(' · ');
-  };
-
-  const lead = split.leadPoints;
-  const routing = config?.routingStrategy?.trim() || DASH;
+  const coverage = summary?.firstRecordAtMs
+    ? earliest !== null && earliest < summary.firstRecordAtMs - 3_600_000
+      ? t('usage.coverage_backfill', {
+          date: when(summary.firstRecordAtMs),
+          backfill: when(earliest),
+        })
+      : t('usage.coverage', { date: when(summary.firstRecordAtMs) })
+    : null;
 
   return (
     <div className={styles.page}>
-      <div className={styles.main}>
-        <header className={styles.header}>
-          <div className={styles.titleRow}>
-            <h1 className={styles.title}>{t('insights.title')}</h1>
-            <span className={styles.titleMeta}>
-              {t('insights.source', { version: serverVersion?.trim() || DASH })}
-            </span>
-            <span className={styles.updated}>
-              {authFilesLoadedAt
-                ? t('insights.updated', { time: formatShortDateTime(authFilesLoadedAt, locale) })
-                : t('insights.loading')}
-            </span>
-          </div>
-          <div className={styles.tabs} role="toolbar" aria-label={t('insights.view_controls')}>
-            <div className={styles.tabGroup} role="group" aria-label={t('insights.metric')}>
-              {(['requests', 'success'] as Metric[]).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`${styles.tab} ${metric === id ? styles.tabActive : ''}`}
-                  aria-pressed={metric === id}
-                  onClick={() => setMetric(id)}
-                >
-                  {t(id === 'requests' ? 'insights.metric_requests' : 'insights.metric_success')}
-                </button>
-              ))}
-            </div>
-            <span className={styles.tabDivider} aria-hidden="true" />
-            <div className={styles.tabGroup} role="group" aria-label={t('insights.range')}>
-              {RANGE_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={`${styles.tab} ${rangeId === option.id ? styles.tabActive : ''}`}
-                  aria-pressed={rangeId === option.id}
-                  onClick={() => setRangeId(option.id)}
-                >
-                  {t(`insights.range_${option.id}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </header>
-
-        {metric === 'requests' && split.claudeShare !== null && split.codexShare !== null ? (
-          <section className={styles.headline} aria-label={t('insights.share_title')}>
-            <div className={styles.side}>
-              <span className={styles.sideName}>
-                <span className={styles.swatch} style={{ background: FAMILY_COLOR.claude }} />
-                {familyName('claude')}
-              </span>
-              <span className={`${styles.hero} ${styles.heroClaude}`}>
-                {formatShare(split.claudeShare)}
-              </span>
-            </div>
-            <div className={styles.lead}>
-              {/* The share covers the whole range; the chart's end labels are the last bucket. */}
-              <span className={styles.leadMeta}>{t(`insights.share_range_${range.id}`)}</span>
-              <span className={styles.leadValue}>
-                {lead === 0 ? '0' : `+${Math.abs(lead ?? 0).toFixed(1)}`}
-                <span className={styles.leadUnit}>pp</span>
-              </span>
-              <span className={styles.leadMeta}>
-                {lead === 0
-                  ? t('insights.even')
-                  : t('insights.leads', { name: familyName((lead ?? 0) > 0 ? 'claude' : 'codex') })}
-              </span>
-            </div>
-            <div className={`${styles.side} ${styles.sideRight}`}>
-              <span className={styles.sideName}>
-                <span className={styles.swatch} style={{ background: FAMILY_COLOR.codex }} />
-                {familyName('codex')}
-              </span>
-              <span className={styles.hero}>{formatShare(split.codexShare)}</span>
-            </div>
-          </section>
-        ) : (
-          <section className={styles.headline}>
-            <div className={styles.side}>
-              <span className={styles.sideName}>
-                {metric === 'requests' ? t('insights.requests') : t('insights.success_rate')}
-              </span>
-              <span className={styles.hero}>
-                {metric === 'requests'
-                  ? formatCount(requests)
-                  : successRate === null
-                    ? DASH
-                    : formatShare(successRate)}
-              </span>
-            </div>
-            <div className={styles.lead}>
-              <span className={styles.leadMeta}>{t(`insights.range_${range.id}_long`)}</span>
-            </div>
-            <div className={`${styles.side} ${styles.sideRight}`}>
-              <span className={styles.sideName}>
-                {metric === 'requests' ? t('insights.success_rate') : t('insights.failed')}
-              </span>
-              <span className={styles.hero}>
-                {metric === 'requests'
-                  ? successRate === null
-                    ? DASH
-                    : formatShare(successRate)
-                  : formatCount(totals.failed)}
-              </span>
-            </div>
-          </section>
-        )}
-
-        <div className={styles.chart}>
-          {visibleRows.length === 0 ? (
-            <p className={styles.empty}>
-              {authFiles === null ? t('insights.loading') : t('insights.nothing_selected')}
-            </p>
-          ) : (
-            <LineChart
-              series={chartSeries}
-              ariaLabel={
-                metric === 'requests' ? t('insights.chart_requests') : t('insights.chart_success')
-              }
-              xLabel={xLabel}
-              xTicks={xTicks}
-              yFormat={(value) =>
-                metric === 'success' ? `${Math.round(value)}%` : formatCount(value)
-              }
-              valueFormat={(value) =>
-                metric === 'success' ? formatShare(value) : formatCount(value)
-              }
-              yMax={metric === 'success' ? 100 : undefined}
-              markers={failureMarkers}
-              extraRows={(index) =>
-                metric === 'success'
-                  ? [
-                      {
-                        label: t('insights.requests'),
-                        value: formatCount(combined[index].success + combined[index].failed),
-                      },
-                      { label: t('insights.failed'), value: formatCount(combined[index].failed) },
-                    ]
-                  : []
-              }
-            />
-          )}
+      <header className={styles.header}>
+        <div className={styles.headerText}>
+          <h1>{t('usage.overview_title')}</h1>
+          <p>{t('usage.overview_subtitle')}</p>
         </div>
-        <p className={styles.footnote}>
-          {metric === 'requests' ? t('insights.footnote_requests') : t('insights.footnote_success')}
-        </p>
-
-        <section className={styles.stats} aria-label={t('insights.stats')}>
-          <div className={styles.stat}>
-            <span className={styles.statLabel}>{t('insights.requests')}</span>
-            <span className={styles.statValue}>{formatCount(requests)}</span>
-          </div>
-          <div className={styles.stat}>
-            <span className={styles.statLabel}>{t('insights.success_rate')}</span>
-            <span className={styles.statValue}>
-              {successRate === null ? DASH : formatShare(successRate)}
-            </span>
-          </div>
-          <div className={styles.stat}>
-            <span className={styles.statLabel}>{t('insights.failed')}</span>
-            <span className={styles.statValue}>{formatCount(totals.failed)}</span>
-          </div>
-          <div className={styles.stat}>
-            <span className={styles.statLabel}>{t('insights.accounts_serving')}</span>
-            <span className={styles.statValue}>
-              {
-                visibleRows.filter(
-                  (row) => sumBuckets(row.buckets.slice(-range.buckets)).success > 0
-                ).length
-              }
-              <span className={styles.statOf}>
-                {' '}
-                {t('insights.of_total', { total: visibleRows.length })}
-              </span>
-            </span>
-          </div>
-        </section>
-
-        <div className={styles.columns}>
-          <section className={styles.panel}>
-            <div className={styles.panelHead}>
-              <h2 className={styles.panelTitle}>{t('insights.limits_title')}</h2>
+        <div className={styles.controls}>
+          <RangePicker range={range} onChange={setRange} />
+          <div className={styles.segmented} role="group" aria-label={t('usage.metric_label')}>
+            {(['tokens', 'cost', 'requests'] as const).map((id) => (
               <button
+                key={id}
                 type="button"
-                className={styles.textButton}
-                onClick={readLimits}
-                disabled={batchLoading || !authFiles}
+                className={metric === id ? styles.segmentActive : styles.segment}
+                aria-pressed={metric === id}
+                onClick={() => setMetric(id)}
               >
-                {batchLoading ? t('insights.reading') : t('insights.read_limits')}
+                {t(`usage.metric_${id}`)}
               </button>
-            </div>
-            <p className={styles.panelNote}>{t('insights.limits_note')}</p>
-            {limitRows.length === 0 ? (
-              <p className={styles.empty}>{t('insights.no_limits')}</p>
-            ) : (
-              <ul className={styles.limitList}>
-                {limitRows.map((row) => (
-                  <li key={row.key} className={styles.limitRow}>
-                    <AccountName row={row} />
-                    <LimitMeter
-                      label={t('insights.five_hour')}
-                      usedPercent={row.limits.fiveHour?.usedPercent ?? null}
-                      color={FAMILY_COLOR[row.family]}
-                      detail={limitDetail(row.limits.fiveHour)}
-                      emptyText={t('insights.not_reported')}
-                      warningText={t('insights.near_limit')}
-                    />
-                    <LimitMeter
-                      label={t('insights.weekly')}
-                      usedPercent={row.limits.weekly?.usedPercent ?? null}
-                      color={FAMILY_COLOR[row.family]}
-                      detail={limitDetail(row.limits.weekly)}
-                      emptyText={t('insights.not_reported')}
-                      warningText={t('insights.near_limit')}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+            ))}
+          </div>
+        </div>
+      </header>
 
-          <section className={styles.panel}>
-            <div className={styles.panelHead}>
-              <h2 className={styles.panelTitle}>{t('insights.served_title')}</h2>
-            </div>
-            <p className={styles.panelNote}>
-              {t('insights.served_note', { range: t(`insights.range_${range.id}_long`) })}
-            </p>
-            <ul className={styles.servedList}>
-              {servedRows.map(({ row, window }) => {
-                const total = window.success + window.failed;
+      {error && (
+        <ErrorNotice
+          error={summary ? t('usage.stale_error') : t('usage.collector_unreachable')}
+          details={error}
+          detailsLabel={t('common.details', { defaultValue: 'Details' })}
+        />
+      )}
+
+      {!summary && !error && <div className={styles.loading}>{t('common.loading')}</div>}
+
+      {summary && totals && (
+        <>
+          <section className={styles.hero} aria-busy={loading || undefined}>
+            <div className={styles.heroSide}>
+              <div className={styles.headline}>
+                <span className={styles.headlineValue}>{format(grand)}</span>
+                <span className={styles.headlineMeta}>
+                  {metric === 'tokens'
+                    ? t('usage.headline_tokens', { requests: formatCount(totals.requests) })
+                    : metric === 'cost'
+                      ? t('usage.headline_cost', { tokens: formatTokens(totalTokens(totals)) })
+                      : t('usage.headline_requests', { failed: formatPercent(errorRate(totals)) })}
+                </span>
+              </div>
+              {providers.map((group) => {
+                const value = metricValue(group, metric);
                 return (
-                  <li key={row.key} className={styles.servedRow}>
-                    <AccountName row={row} />
-                    <div
-                      className={styles.servedBar}
-                      role="img"
-                      aria-label={t('insights.served_aria', {
-                        name: row.name,
-                        success: window.success,
-                        failed: window.failed,
-                      })}
-                    >
-                      {window.success > 0 && (
-                        <span
-                          className={styles.servedFill}
-                          style={{
-                            width: `${(window.success / servedPeak) * 100}%`,
-                            background: FAMILY_COLOR[row.family],
-                          }}
-                        />
-                      )}
-                      {window.failed > 0 && (
-                        <span
-                          className={styles.servedFill}
-                          style={{
-                            width: `${(window.failed / servedPeak) * 100}%`,
-                            background: 'var(--viz-failure)',
-                          }}
-                        />
-                      )}
+                  <div key={group.id} className={styles.providerRow}>
+                    <div className={styles.providerTop}>
+                      <span className={styles.providerName}>
+                        <i style={{ background: providerColor(group.id) }} aria-hidden="true" />
+                        {providerName(group.id, unknown)}
+                      </span>
+                      <span className={styles.providerValue}>{format(value)}</span>
                     </div>
-                    <span className={styles.servedValue}>
-                      {formatCount(total)}
-                      {window.failed > 0 && (
-                        <span className={styles.servedFailed}>
-                          {t('insights.failed_count', { count: window.failed })}
-                        </span>
-                      )}
-                    </span>
-                    <span className={styles.servedSince}>
-                      {t('insights.since_start', {
-                        count: row.sinceStart.success + row.sinceStart.failed,
+                    <span className={styles.providerMeta}>
+                      {t('usage.provider_share', {
+                        share: formatPercent(grand > 0 ? value / grand : null),
+                        metric: t(`usage.metric_${metric}`).toLowerCase(),
                       })}
+                      {' · '}
+                      {metric === 'cost'
+                        ? `${formatTokens(totalTokens(group))} ${t('usage.tokens_word')}`
+                        : formatUsd(group.costUsd)}
                     </span>
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
+            <div className={styles.heroChart}>
+              <h2>{chartTitle}</h2>
+              {empty ? (
+                <div className={styles.chartEmpty}>{t('usage.empty_range')}</div>
+              ) : (
+                <LineChart
+                  series={series}
+                  ariaLabel={chartTitle}
+                  xLabel={(index) => bucketLabel(buckets[index]?.t ?? 0, resolved.bucket, locale)}
+                  xTicks={evenTicks(buckets.length)}
+                  yFormat={(value) => format(value)}
+                  valueFormat={(value) => format(value)}
+                  endValue={(id) => {
+                    const group = providers.find((item) => item.id === id);
+                    return group ? format(metricValue(group, metric)) : '';
+                  }}
+                  height={300}
+                  extraRows={(index) => {
+                    const bucket = buckets[index];
+                    if (!bucket) return [];
+                    return [
+                      { label: t('usage.requests_word'), value: formatCount(bucket.requests) },
+                      ...(bucket.failed > 0
+                        ? [{ label: t('usage.failed_word'), value: formatCount(bucket.failed) }]
+                        : []),
+                    ];
+                  }}
+                />
+              )}
+              <p className={styles.chartNote}>
+                {t('usage.chart_note')}
+                {startsBeforeHistory && ` ${t('usage.chart_gap_note')}`}
+              </p>
+            </div>
           </section>
-        </div>
 
-        <section className={styles.gateway} aria-label={t('insights.gateway')}>
-          <dl className={styles.facts}>
-            <div>
-              <dt>{t('insights.fact_version')}</dt>
-              <dd>{serverVersion?.trim() || DASH}</dd>
-            </div>
-            <div>
-              <dt>{t('insights.fact_routing')}</dt>
-              <dd>{routing}</dd>
-            </div>
-            <div>
-              <dt>{t('insights.fact_retry')}</dt>
-              <dd>{String(config?.requestRetry ?? DASH)}</dd>
-            </div>
-            <div>
-              <dt>{t('insights.fact_file_logs')}</dt>
-              <dd>{config?.loggingToFile ? t('insights.on') : t('insights.off')}</dd>
-            </div>
-          </dl>
-          <nav className={styles.links} aria-label={t('insights.shortcuts')}>
-            <Link to="/auth-files">{t('insights.link_accounts')}</Link>
-            <Link to="/oauth">{t('insights.link_sign_in')}</Link>
-            <Link to="/ai-providers">{t('insights.link_api_keys')}</Link>
-            <Link to="/quota">{t('insights.link_limits')}</Link>
-          </nav>
-        </section>
-      </div>
+          {!empty && (
+            <>
+              <section className={styles.section}>
+                <ShareBar
+                  label={t('usage.tokens_by_type')}
+                  format={formatTokens}
+                  note={
+                    totals.reasoning > 0
+                      ? t('usage.reasoning_note', { tokens: formatTokens(totals.reasoning) })
+                      : undefined
+                  }
+                  segments={[
+                    {
+                      label: t('usage.token_uncached'),
+                      value: totals.inputUncached,
+                      color: TOKEN_COLORS.uncached,
+                    },
+                    {
+                      label: t('usage.token_cache_read'),
+                      value: totals.cacheRead,
+                      color: TOKEN_COLORS.cacheRead,
+                    },
+                    {
+                      label: t('usage.token_cache_write'),
+                      value: totals.cacheWrite,
+                      color: TOKEN_COLORS.cacheWrite,
+                    },
+                    {
+                      label: t('usage.token_output'),
+                      value: totals.output,
+                      color: TOKEN_COLORS.output,
+                    },
+                  ]}
+                />
+              </section>
 
-      <aside className={styles.sidebar} aria-label={t('insights.filters')}>
-        <div className={styles.sideHead}>
-          <h2 className={styles.sideTitle}>
-            {t('insights.providers')}
-            <span className={styles.sideCount}>{familiesPresent.length}</span>
-          </h2>
-          <button
-            type="button"
-            className={styles.resetButton}
-            onClick={() => {
-              setHiddenFamilies(new Set());
-              setHiddenAccounts(new Set());
-            }}
-            aria-label={t('insights.reset_filters')}
-            title={t('insights.reset_filters')}
-          >
-            ↺
-          </button>
-        </div>
-        <ul className={styles.checkList}>
-          {familiesPresent.map((family) => {
-            const total = allFamilySeries.find((item) => item.family === family)?.total ?? 0;
-            return (
-              <li key={family}>
-                <label className={styles.check}>
-                  <input
-                    type="checkbox"
-                    checked={!hiddenFamilies.has(family)}
-                    onChange={() => toggleFamily(family)}
+              <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>{t('usage.health_title')}</h2>
+                <div className={styles.stats}>
+                  <Stat
+                    label={t('usage.stat_requests')}
+                    value={formatCount(totals.requests)}
+                    hint={t('usage.stat_requests_hint')}
                   />
-                  <span className={styles.swatch} style={{ background: FAMILY_COLOR[family] }} />
-                  <span className={styles.checkName}>{familyName(family)}</span>
-                  <span className={styles.checkValue}>
-                    {grandTotal > 0 ? formatShare((total / grandTotal) * 100) : DASH}
-                  </span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-
-        <div className={styles.sideHead}>
-          <h2 className={styles.sideTitle}>
-            {t('insights.accounts')}
-            <span className={styles.sideCount}>{rows.length}</span>
-          </h2>
-          <div className={styles.sideActions}>
-            <button type="button" onClick={() => setHiddenAccounts(new Set())}>
-              {t('insights.select_all')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setHiddenAccounts(new Set(rows.map((row) => row.key)))}
-            >
-              {t('insights.clear')}
-            </button>
-          </div>
-        </div>
-        <ul className={styles.checkList}>
-          {rows.map((row) => {
-            const window = sumBuckets(row.buckets.slice(-range.buckets));
-            return (
-              <li key={row.key}>
-                <label
-                  className={`${styles.check} ${hiddenFamilies.has(row.family) ? styles.checkMuted : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={!hiddenAccounts.has(row.key)}
-                    onChange={() => toggleAccount(row.key)}
+                  <Stat
+                    label={t('usage.stat_errors')}
+                    value={formatPercent(errorRate(totals))}
+                    hint={t('usage.stat_errors_hint', { count: totals.failed })}
+                    tone={(errorRate(totals) ?? 0) >= 0.05 ? 'error' : undefined}
                   />
-                  <span
-                    className={styles.swatch}
-                    style={{ background: FAMILY_COLOR[row.family] }}
+                  <Stat
+                    label={t('usage.stat_cache')}
+                    value={formatPercent(cacheHitRate(totals))}
+                    hint={t('usage.stat_cache_hint')}
                   />
-                  <span className={styles.checkName} title={row.name}>
-                    {row.name}
-                  </span>
-                  <span className={styles.checkValue}>
-                    {formatCount(window.success + window.failed)}
-                  </span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
+                  <Stat
+                    label={t('usage.stat_p50')}
+                    value={formatMs(totals.latencyP50Ms)}
+                    hint={t('usage.stat_p50_hint')}
+                  />
+                  <Stat
+                    label={t('usage.stat_p95')}
+                    value={formatMs(totals.latencyP95Ms)}
+                    hint={t('usage.stat_p95_hint')}
+                  />
+                  <Stat
+                    label={t('usage.stat_ttft')}
+                    value={formatMs(totals.ttftP50Ms)}
+                    hint={t('usage.stat_ttft_hint')}
+                  />
+                </div>
+              </section>
 
-        <details className={styles.method}>
-          <summary>{t('insights.method_title')}</summary>
-          <p>{t('insights.method_buckets', { count: BUCKETS_PER_WINDOW })}</p>
-          <p>{t('insights.method_limits')}</p>
-          <p>{t('insights.method_missing')}</p>
-        </details>
-      </aside>
+              <section className={styles.section}>
+                <div className={styles.sectionHead}>
+                  <h2 className={styles.sectionTitle}>{t('usage.breakdown_title')}</h2>
+                  <div
+                    className={styles.segmented}
+                    role="group"
+                    aria-label={t('usage.breakdown_title')}
+                  >
+                    {(['model', 'account', 'key', 'time'] as const).map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={breakdown === id ? styles.segmentActive : styles.segment}
+                        aria-pressed={breakdown === id}
+                        onClick={() => setBreakdown(id)}
+                      >
+                        {id === 'time'
+                          ? t(`usage.breakdown_time_${resolved.bucket}`)
+                          : t(`usage.breakdown_${id}`)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {breakdown !== 'time' ? (
+                  <BreakdownTable
+                    groups={groupsFor(breakdown)}
+                    label={(group) => groupLabel(breakdown, group)}
+                    secondary={(group) =>
+                      breakdown === 'account'
+                        ? [
+                            providerName(group.provider, unknown),
+                            group.via ? t('usage.via', { via: group.via }) : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')
+                        : breakdown === 'key'
+                          ? keyNames[group.id]
+                            ? group.label
+                            : null
+                          : providerName(group.provider, unknown)
+                    }
+                    metric={metric}
+                    grand={grand}
+                    onOpen={
+                      breakdown === 'model'
+                        ? (group) => setModelOpen(group.id)
+                        : breakdown === 'account'
+                          ? () => navigate('/auth-files')
+                          : (group) => navigate(`/requests?key=${encodeURIComponent(group.id)}`)
+                    }
+                    nameHeader={t(`usage.breakdown_${breakdown}`)}
+                  />
+                ) : (
+                  <div className={styles.tableWrap}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>
+                          <th>{t(`usage.breakdown_time_${resolved.bucket}`)}</th>
+                          {providers.map((group) => (
+                            <th key={group.id} className={styles.num}>
+                              {providerName(group.id, unknown)}
+                            </th>
+                          ))}
+                          <th className={styles.num}>{t('usage.col_total')}</th>
+                          <th className={styles.num}>{t('usage.col_requests')}</th>
+                          <th className={styles.num}>{t('usage.col_errors')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...buckets]
+                          .reverse()
+                          .filter((bucket) => bucket.requests > 0)
+                          .map((bucket) => (
+                            <tr key={bucket.t}>
+                              <td>{bucketLabel(bucket.t, resolved.bucket, locale)}</td>
+                              {providers.map((group) => {
+                                const entry = bucket.byProvider[group.id];
+                                const value = !entry
+                                  ? 0
+                                  : metric === 'tokens'
+                                    ? entry.tokens
+                                    : metric === 'cost'
+                                      ? entry.costUsd
+                                      : entry.requests;
+                                return (
+                                  <td key={group.id} className={`${styles.num} ${styles.muted}`}>
+                                    {format(value)}
+                                  </td>
+                                );
+                              })}
+                              <td className={styles.num}>{format(metricValue(bucket, metric))}</td>
+                              <td className={`${styles.num} ${styles.muted}`}>
+                                {formatCount(bucket.requests)}
+                              </td>
+                              <td
+                                className={`${styles.num} ${bucket.failed > 0 ? styles.errorText : styles.muted}`}
+                              >
+                                {formatCount(bucket.failed)}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+
+          <footer className={styles.footnotes}>
+            <p>
+              {t('usage.cost_note', {
+                source: summary.priceSource?.name || 'LiteLLM',
+                date: summary.priceSource?.fetchedAt ?? '',
+              })}
+              {totals.unpricedRequests > 0 &&
+                ` ${t('usage.unpriced_note', { count: totals.unpricedRequests })}`}
+            </p>
+            {coverage && <p>{coverage}</p>}
+          </footer>
+        </>
+      )}
+
+      <ModelDialog
+        model={modelOpen}
+        range={resolved}
+        metric={metric}
+        keyNames={keyNames}
+        onClose={() => setModelOpen(null)}
+      />
     </div>
   );
 }
 
-function AccountName({ row }: { row: AccountRow }) {
+function BreakdownTable({
+  groups,
+  label,
+  secondary,
+  metric,
+  grand,
+  onOpen,
+  nameHeader,
+}: {
+  groups: UsageGroup[];
+  label: (group: UsageGroup) => string;
+  secondary: (group: UsageGroup) => string | null;
+  metric: Metric;
+  grand: number;
+  onOpen: (group: UsageGroup) => void;
+  nameHeader: string;
+}) {
   const { t } = useTranslation();
+  const peak = Math.max(0, ...groups.map((group) => metricValue(group, metric)));
+  if (groups.length === 0) return <div className={styles.chartEmpty}>{t('usage.empty_range')}</div>;
   return (
-    <span className={styles.accountName}>
-      <span className={styles.swatch} style={{ background: FAMILY_COLOR[row.family] }} />
-      <span className={styles.accountText} title={row.name}>
-        {row.name}
-      </span>
-      {row.disabled && <span className={styles.accountFlag}>{t('insights.disabled')}</span>}
-      {!row.disabled && row.unavailable && (
-        <span className={styles.accountFlag}>{t('insights.cooling_down')}</span>
-      )}
-    </span>
+    <div className={styles.tableWrap}>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th className={styles.rank}>#</th>
+            <th className={styles.nameCol}>{nameHeader}</th>
+            <th className={styles.num}>{t('usage.col_requests')}</th>
+            <th className={styles.num}>{t('usage.col_tokens')}</th>
+            <th className={styles.num}>{t('usage.col_cost')}</th>
+            <th className={`${styles.num} ${styles.hideNarrow}`}>{t('usage.col_share')}</th>
+            <th className={`${styles.num} ${styles.hideNarrow}`}>{t('usage.col_errors')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((group, index) => {
+            const value = metricValue(group, metric);
+            const sub = secondary(group);
+            return (
+              <tr key={group.id || index} className={styles.clickable}>
+                <td className={`${styles.rank} ${styles.muted}`}>{index + 1}</td>
+                <td className={styles.nameCol}>
+                  <button type="button" className={styles.rowButton} onClick={() => onOpen(group)}>
+                    <MiddleTruncate className={styles.rowName} value={label(group)} />
+                  </button>
+                  {sub && <span className={styles.rowSub}>{sub}</span>}
+                  {value > 0 && peak > 0 && (
+                    <div className={styles.rowBar} aria-hidden="true">
+                      <div
+                        style={{
+                          width: `max(4px, ${(value / peak) * 100}%)`,
+                          background: providerColor(group.provider),
+                        }}
+                      />
+                    </div>
+                  )}
+                </td>
+                <td className={styles.num}>{formatCount(group.requests)}</td>
+                <td className={`${styles.num} ${styles.muted}`}>
+                  {formatTokens(totalTokens(group))}
+                </td>
+                <td className={styles.num}>
+                  {group.unpricedRequests > 0 && group.costUsd === 0 ? (
+                    <span className={styles.muted}>{t('usage.unpriced')}</span>
+                  ) : (
+                    formatUsd(group.costUsd)
+                  )}
+                </td>
+                <td className={`${styles.num} ${styles.muted} ${styles.hideNarrow}`}>
+                  {formatPercent(grand > 0 ? value / grand : null)}
+                </td>
+                <td
+                  className={`${styles.num} ${styles.hideNarrow} ${group.failed > 0 ? styles.errorText : styles.muted}`}
+                >
+                  {formatPercent(errorRate(group))}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

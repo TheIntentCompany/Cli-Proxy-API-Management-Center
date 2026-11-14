@@ -44,11 +44,14 @@ export function CodexLbRow({
   account,
   keyInfo,
   onChanged,
+  usage,
 }: {
   account: CodexLbAccount;
   keyInfo: CodexLbKey;
   /** Called after an action so the caller can re-read the status service. */
   onChanged?: () => void;
+  /** Requests, tokens and cost in the chosen range, from the usage collector. */
+  usage?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
@@ -152,6 +155,7 @@ export function CodexLbRow({
               {t('codex_lb.updated', { when: formatRelative(recordedAt, now, locale) })}
             </span>
           )}
+          {usage && <span className={styles.usage}>{usage}</span>}
         </div>
       </div>
 
