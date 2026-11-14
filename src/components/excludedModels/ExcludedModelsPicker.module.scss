@@ -1,3 +1,4 @@
+@use '../../styles/mixins' as *;
 .root {
   display: flex;
   flex-direction: column;
@@ -475,3 +476,13 @@
     transform: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.footerButton {
+  @include t3-button(outline, sm);
+}
+
+.retryButton {
+  @include t3-button(outline, sm);
+}
+/* ===== end T3 control language ===== */

@@ -7,7 +7,6 @@ import { SelectionCheckbox } from '@/components/ui/SelectionCheckbox';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import {
   IconDownload,
-  IconInfo,
   IconModelCluster,
   IconRefreshCw,
   IconSettings,
@@ -36,6 +35,7 @@ import { AuthFileQuotaSection } from '@/features/authFiles/components/AuthFileQu
 import { AuthFileCooldownSection } from './AuthFileCooldownSection';
 import { getSiwcBindingStatus, supportsSiwcBinding } from '@/features/oauth/siwcBinding';
 import { SiwcStatusBadge } from '@/features/oauth/components/SiwcStatusBadge';
+import { ErrorNotice, MiddleTruncate } from '@/components/ui/t3';
 import styles from './AuthFileCard.module.scss';
 
 export type AuthFileCardProps = {
@@ -163,12 +163,10 @@ export function AuthFileCard(props: AuthFileCardProps) {
           >
             {typeLabel}
           </span>
-          <span
+          <MiddleTruncate
             className={`${styles.account} ${identity.kind === 'fileName' ? styles.accountMono : ''}`}
-            title={identity.primary}
-          >
-            {identity.primary}
-          </span>
+            value={identity.primary}
+          />
         </h3>
         {isRuntimeOnly && (
           <span className={styles.runtimeLabel}>{t('auth_files.type_virtual')}</span>
@@ -176,8 +174,8 @@ export function AuthFileCard(props: AuthFileCardProps) {
       </header>
 
       {identity.secondary && (
-        <p className={styles.fileName} title={identity.fullName}>
-          {identity.secondary}
+        <p className={styles.fileName}>
+          <MiddleTruncate value={identity.secondary} showTitle={false} title={identity.fullName} />
         </p>
       )}
 
@@ -188,10 +186,11 @@ export function AuthFileCard(props: AuthFileCardProps) {
       )}
 
       {rawStatusMessage && hasStatusWarning && (
-        <div className={styles.warning} title={rawStatusMessage}>
-          <IconInfo className={styles.warningIcon} size={14} />
-          <span>{rawStatusMessage}</span>
-        </div>
+        <ErrorNotice
+          className={styles.warning}
+          error={rawStatusMessage}
+          detailsLabel={t('common.details', { defaultValue: 'Details' })}
+        />
       )}
 
       <AuthFileCooldownSection

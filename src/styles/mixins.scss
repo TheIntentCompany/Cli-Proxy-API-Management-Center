@@ -48,3 +48,254 @@
     outline-offset: 2px;
   }
 }
+
+// ---------------------------------------------------------------------------
+// T3 Code control language (MIT, see THIRD_PARTY_NOTICES.md). Every button,
+// input, select trigger, segmented control and badge in the panel is drawn by
+// one of these, so heights, radii and states never drift between pages.
+// ---------------------------------------------------------------------------
+
+@mixin t3-focus-ring {
+  &:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 1px var(--t3-background),
+      0 0 0 3px var(--t3-ring);
+  }
+}
+
+@mixin t3-control-base {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: $control-radius;
+  font: inherit;
+  font-size: $text-sm;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease,
+    scale 80ms ease;
+  @include t3-focus-ring;
+
+  svg {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+  }
+
+  &:active:not(:disabled):not([aria-haspopup]) {
+    scale: 0.97;
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+/// $variant: primary | outline | ghost | destructive | destructive-outline
+/// $size: md (32px) | sm (28px) | xs (24px) | icon | icon-sm
+@mixin t3-button($variant: outline, $size: md) {
+  @include t3-control-base;
+
+  @if $size == md {
+    height: $control-h;
+    padding: 0 11px;
+  } @else if $size == sm {
+    height: $control-h-sm;
+    padding: 0 9px;
+    font-size: $text-xs;
+  } @else if $size == xs {
+    height: $control-h-xs;
+    padding: 0 7px;
+    gap: 4px;
+    font-size: $text-xs;
+    border-radius: 6px;
+
+    svg {
+      width: 13px;
+      height: 13px;
+    }
+  } @else if $size == icon {
+    width: $control-h;
+    height: $control-h;
+    padding: 0;
+  } @else if $size == icon-sm {
+    width: $control-h-sm;
+    height: $control-h-sm;
+    padding: 0;
+  }
+
+  @if $variant == primary {
+    background: var(--t3-primary);
+    border-color: var(--t3-primary);
+    color: var(--t3-primary-foreground);
+    box-shadow: var(--t3-highlight);
+
+    &:hover:not(:disabled) {
+      background: var(--t3-primary-hover);
+      border-color: var(--t3-primary-hover);
+    }
+  } @else if $variant == outline {
+    background: var(--t3-input-fill);
+    border-color: var(--t3-input);
+    color: var(--t3-foreground);
+    box-shadow: var(--t3-highlight);
+
+    &:hover:not(:disabled) {
+      background: var(--t3-input-fill-hover);
+    }
+  } @else if $variant == ghost {
+    background: transparent;
+    color: var(--t3-muted-foreground);
+
+    &:hover:not(:disabled) {
+      background: var(--t3-accent);
+      color: var(--t3-foreground);
+    }
+  } @else if $variant == destructive {
+    background: var(--t3-error);
+    border-color: var(--t3-error);
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.08);
+    }
+  } @else if $variant == destructive-outline {
+    background: var(--t3-input-fill);
+    border-color: var(--t3-input);
+    color: var(--t3-error-foreground);
+
+    &:hover:not(:disabled) {
+      border-color: rgba(240, 77, 77, 0.32);
+      background: var(--t3-error-surface);
+    }
+  }
+}
+
+@mixin t3-input {
+  height: $control-h;
+  width: 100%;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid var(--t3-input);
+  border-radius: $control-radius;
+  background: var(--t3-input-fill);
+  color: var(--t3-foreground);
+  font: inherit;
+  font-size: $text-sm;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+
+  &::placeholder {
+    color: var(--t3-subtle-foreground);
+  }
+
+  &:focus,
+  &:focus-within {
+    outline: none;
+    border-color: var(--t3-ring);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--t3-ring) 24%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/// $variant: neutral | outline | success | warning | error | info | primary
+@mixin t3-badge($variant: neutral) {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0 5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: $text-2xs;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+
+  @if $variant == neutral {
+    background: var(--t3-secondary);
+    color: var(--t3-muted-foreground);
+    border-color: var(--t3-border);
+  } @else if $variant == outline {
+    background: transparent;
+    color: var(--t3-foreground);
+    border-color: var(--t3-input);
+  } @else if $variant == success {
+    background: var(--t3-success-surface);
+    color: var(--t3-success-foreground);
+  } @else if $variant == warning {
+    background: var(--t3-warning-surface);
+    color: var(--t3-warning-foreground);
+  } @else if $variant == error {
+    background: var(--t3-error-surface);
+    color: var(--t3-error-foreground);
+  } @else if $variant == info {
+    background: rgba(96, 165, 250, 0.14);
+    color: var(--t3-info-foreground);
+  } @else if $variant == primary {
+    background: var(--t3-primary);
+    color: var(--t3-primary-foreground);
+  }
+}
+
+/// Segmented control (T3 toggle-group): a quiet track with the selected item raised.
+@mixin t3-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: $control-h;
+  padding: 2px;
+  border: 1px solid var(--t3-border);
+  border-radius: $control-radius;
+  background: var(--t3-secondary);
+}
+
+@mixin t3-segmented-item($active: false) {
+  @include t3-control-base;
+  height: $control-h - 6px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: $text-xs;
+  background: transparent;
+  color: var(--t3-muted-foreground);
+
+  &:hover:not(:disabled) {
+    color: var(--t3-foreground);
+  }
+
+  @if $active {
+    background: var(--t3-accent);
+    border-color: var(--t3-border);
+    color: var(--t3-foreground);
+    box-shadow: var(--t3-highlight);
+  }
+}
+
+/// Raised surface for panels and popovers.
+@mixin t3-surface($radius: 12px) {
+  background: var(--t3-card);
+  border: 1px solid var(--t3-border);
+  border-radius: $radius;
+}

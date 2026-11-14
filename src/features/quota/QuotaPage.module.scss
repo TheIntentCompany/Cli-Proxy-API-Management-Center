@@ -5,6 +5,7 @@
  * ============================================================ */
 
 .page {
+  container: page / inline-size;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -192,29 +193,29 @@
 
 .table {
   min-width: 0;
+  /* Shared by the header row and QuotaRow: identity | 5-hour | weekly | models | actions. */
+  --limits-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.05fr) 128px;
 }
 
 .columns {
   display: grid;
-  grid-template-columns: minmax(180px, 1.15fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(
-      150px,
-      1.2fr
-    ) 92px;
-  column-gap: 28px;
+  grid-template-columns: var(--limits-columns);
+  column-gap: 24px;
   padding: 0 0 8px;
-  color: var(--text-tertiary);
-  font-size: 12px;
+  color: var(--t3-subtle-foreground);
+  font-size: $text-xs;
 }
 
 .list {
+  container: limits / inline-size;
   display: flex;
   flex-direction: column;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--t3-border);
 }
 
 .cardItem {
   padding: 16px 0;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--t3-border);
 }
 
 .skeletonList {
@@ -225,11 +226,12 @@
 
 .footnote {
   margin: 4px 0 0;
-  color: var(--text-tertiary);
-  font-size: 12px;
+  color: var(--t3-subtle-foreground);
+  font-size: $text-xs;
 }
 
-@media (max-width: 1100px) {
+/* The header row only lines up with the five-column layout. */
+@container page (max-width: 999px) {
   .columns {
     display: none;
   }
@@ -279,3 +281,59 @@
     margin-bottom: 14px;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.tabsRow > :first-child {
+  flex: 0 1 auto;
+}
+
+.search {
+  @include t3-input;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: $control-h;
+  padding: 0 4px 0 10px;
+  flex: 0 1 340px;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--t3-foreground);
+  font: inherit;
+  font-size: $text-sm;
+  outline: none;
+  &::placeholder {
+    color: var(--t3-subtle-foreground);
+  }
+}
+
+.searchIcon {
+  position: static;
+  flex-shrink: 0;
+  color: var(--t3-subtle-foreground);
+}
+
+.clearSearch {
+  @include t3-button(ghost, icon-sm);
+  width: 24px;
+  height: 24px;
+}
+
+.sort button[aria-haspopup='listbox'] {
+  @include t3-button(outline, md);
+  justify-content: space-between;
+  color: var(--t3-foreground);
+  &:focus-visible,
+  &[aria-expanded='true'] {
+    outline: none;
+    border-color: var(--t3-ring);
+    background: var(--t3-input-fill);
+  }
+}
+/* ===== end T3 control language ===== */

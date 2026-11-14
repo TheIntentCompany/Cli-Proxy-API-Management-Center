@@ -228,3 +228,21 @@
     }
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.primaryAction {
+  @include t3-button(primary, sm);
+}
+
+.emptyActionButton {
+  @include t3-button(outline, sm);
+}
+
+.emptyActionButtonEmphasis {
+  @include t3-button(primary, sm);
+}
+
+.emptyActionButtonPrimary {
+  @include t3-button(primary, sm);
+}
+/* ===== end T3 control language ===== */

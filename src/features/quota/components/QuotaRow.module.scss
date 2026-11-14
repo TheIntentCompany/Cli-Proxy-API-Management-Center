@@ -1,19 +1,47 @@
-/* One account per row: identity · 5-hour · weekly · model limits · action, then one facts line. */
+@use '../../../styles/mixins' as *;
+
+/* One account per row. The list (QuotaPage .list) is a size container named "limits", so
+ * rows lay out by the width they actually have:
+ *   wide   identity | 5-hour | weekly | model limits | actions, details under the meters
+ *   medium identity + actions on top, the three meter columns below, then details
+ *   narrow everything stacked
+ * The column template is shared with the header row in QuotaPage.module.scss. */
 
 .row {
   display: grid;
-  grid-template-columns: minmax(180px, 1.15fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(
-      150px,
-      1.2fr
-    ) 92px;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    'account five week others actions'
-    '. facts facts facts facts';
-  column-gap: 28px;
-  row-gap: 10px;
+    'account actions'
+    'five five'
+    'week week'
+    'others others'
+    'details details';
+  gap: 12px 16px;
   align-items: start;
   padding: 16px 0;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--t3-border);
+}
+
+@container limits (min-width: 620px) {
+  .row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      'account account actions'
+      'five week others'
+      'details details details';
+    column-gap: 24px;
+  }
+}
+
+@container limits (min-width: 1000px) {
+  .row {
+    grid-template-columns: var(--limits-columns);
+    grid-template-areas:
+      'account five week others actions'
+      'account details details details details';
+    column-gap: 24px;
+    row-gap: 12px;
+  }
 }
 
 .account {
@@ -35,21 +63,40 @@
 .accountText {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
 .name {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: 13.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--t3-foreground);
+  font-size: $text-sm;
+  font-weight: 500;
 }
 
 .sub {
-  color: var(--text-tertiary);
-  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--t3-subtle-foreground);
+  font-size: $text-xs;
+}
+
+.status {
+  color: var(--t3-subtle-foreground);
+  font-size: $text-2xs;
+}
+
+.meter {
+  min-width: 0;
+}
+
+.meterFive {
+  grid-area: five;
+}
+
+.meterWeek {
+  grid-area: week;
 }
 
 .others {
@@ -61,47 +108,31 @@
 }
 
 .none {
-  color: var(--text-quaternary);
-  font-size: 12px;
+  color: var(--t3-faint-foreground);
+  font-size: $text-xs;
   line-height: 18px;
 }
 
 .actions {
   grid-area: actions;
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
 }
 
-.readButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border: 1px solid var(--border-primary);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12.5px;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    color var(--dur-hover) var(--ease-out-strong),
-    border-color var(--dur-hover) var(--ease-out-strong);
-
-  &:hover:not(:disabled) {
-    color: var(--text-primary);
-    border-color: var(--border-hover);
+@container limits (max-width: 999px) {
+  .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
+}
 
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
-
-  &:focus-visible {
-    outline: 1px solid var(--border-hover);
-    outline-offset: 2px;
-  }
+.action {
+  @include t3-button(outline, xs);
+  justify-content: flex-start;
 }
 
 .spinning {
@@ -120,85 +151,137 @@
   }
 }
 
-.facts {
-  grid-area: facts;
+/* ---------- details: banked resets, extra usage, balances, renewal, credits ---------- */
+
+.details {
+  grid-area: details;
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 0;
-  color: var(--text-secondary);
-  font-size: 12.5px;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
 }
 
-/* Facts read as one sentence-like line separated by middots. */
-.fact,
-.facts > .link,
-.facts > .muted,
-.facts > .error {
-  &:not(:first-child)::before {
-    content: '·';
-    margin: 0 9px;
-    color: var(--text-quaternary);
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 10px 24px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--t3-border);
+  border-radius: 10px;
+  background: var(--t3-secondary);
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  dt {
+    color: var(--t3-subtle-foreground);
+    font-size: $text-2xs;
+    font-weight: 500;
+  }
+
+  dd {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    margin: 0;
+    color: var(--t3-foreground);
+    font-size: $text-xs;
+    line-height: 1.5;
   }
 }
 
-.plan {
-  color: var(--text-primary);
+/* Facts used by the codex-lb row (CodexLbRow) as a single inline line. */
+.factsLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  color: var(--t3-muted-foreground);
+  font-size: $text-xs;
+
+  > span:not(:first-child)::before {
+    content: '·';
+    margin: 0 8px;
+    color: var(--t3-faint-foreground);
+  }
+}
+
+.inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    align-items: baseline;
+    min-width: 0;
+    padding: 3px 0;
+
+    & + li {
+      border-top: 1px solid var(--t3-border);
+    }
+  }
+}
+
+.listLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--t3-foreground);
+}
+
+.listValue {
+  grid-column: 1 / -1;
+  color: var(--t3-subtle-foreground);
+  font-size: $text-2xs;
+  white-space: nowrap;
+}
+
+.listWhen {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--t3-muted-foreground);
+  white-space: nowrap;
 }
 
 .muted {
-  color: var(--text-tertiary);
+  color: var(--t3-muted-foreground);
+}
+
+.note {
+  color: var(--t3-warning-foreground);
 }
 
 .error {
-  color: var(--warning-text);
+  color: var(--t3-error-foreground);
+}
+
+.plan {
+  color: var(--t3-foreground);
+}
+
+.linkButton {
+  @include t3-button(outline, xs);
 }
 
 .link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-primary);
-  font-size: 12.5px;
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: var(--border-hover);
-  text-underline-offset: 3px;
-
-  &:hover:not(:disabled) {
-    text-decoration-color: var(--text-secondary);
-  }
-
-  &:disabled {
-    color: var(--text-tertiary);
-    cursor: not-allowed;
-  }
-}
-
-@media (max-width: 1100px) {
-  .row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas:
-      'account actions'
-      'five week'
-      'others others'
-      'facts facts';
-  }
-}
-
-@media (max-width: 640px) {
-  .row {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      'account'
-      'five'
-      'week'
-      'others'
-      'facts'
-      'actions';
-  }
-
-  .actions {
-    justify-content: flex-start;
-  }
+  @include t3-button(outline, xs);
 }

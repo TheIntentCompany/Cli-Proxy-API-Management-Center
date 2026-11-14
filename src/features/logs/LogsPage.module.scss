@@ -683,3 +683,62 @@
     padding-block: 4px;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.tabBar {
+  @include t3-segmented;
+  height: auto;
+}
+
+.tabItem {
+  @include t3-segmented-item(false);
+  font-size: $text-sm;
+  padding: 0 12px;
+}
+
+.tabActive {
+  @include t3-segmented-item(true);
+  font-size: $text-sm;
+  padding: 0 12px;
+}
+
+.errorCard {
+  flex: 0 1 auto;
+}
+
+.container {
+  --log-control-height: 32px;
+}
+
+.errorBody {
+  :global(.hint) {
+    font-size: $text-sm;
+    color: var(--t3-muted-foreground);
+  }
+}
+
+.pageTitle {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.filterChip {
+  @include t3-button(outline, xs);
+}
+
+.filterChipActive {
+  background: var(--t3-accent);
+  border-color: var(--t3-border-strong);
+  color: var(--t3-foreground);
+}
+
+.filterPanelToggle {
+  @include t3-button(outline, sm);
+}
+
+.followButton {
+  @include t3-button(outline, sm);
+}
+/* ===== end T3 control language ===== */

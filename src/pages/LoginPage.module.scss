@@ -9,32 +9,11 @@
   overflow: hidden;
   background: var(--login-bg);
   color: var(--text-primary);
-
-  // 移动端顶部点阵横幅的高度
-  --hero-band: clamp(200px, 38dvh, 340px);
-}
-
-.brandPanel {
-  position: relative;
-  flex: 1.15 1 0;
-  min-width: 0;
-  height: 100%;
-  overflow: hidden;
-
-  // 移动端：点阵收为页面顶部的横幅，铺在品牌栏之后、向下淡入底色，表单在其下方
-  @media (max-width: $breakpoint-mobile) {
-    position: absolute;
-    inset: 0 0 auto;
-    z-index: 0;
-    height: var(--hero-band);
-    pointer-events: none;
-  }
 }
 
 .formPanel {
   flex: 1 1 0;
   min-width: min(400px, 100%);
-  max-width: 640px;
   height: 100%;
   min-height: 0;
   display: grid;
@@ -48,11 +27,8 @@
   scrollbar-width: thin;
 
   @media (max-width: $breakpoint-mobile) {
-    position: relative;
-    z-index: 1;
     min-width: 0;
-    max-width: none;
-    padding: 20px 24px;
+    padding: 16px 20px;
   }
 }
 
@@ -78,10 +54,10 @@
   display: inline-flex;
   flex: 1 1 auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
-  font-size: 13px;
-  font-weight: 550;
+  font-size: $text-sm;
+  font-weight: 600;
   letter-spacing: -0.005em;
   color: var(--text-primary);
   white-space: nowrap;
@@ -93,12 +69,18 @@
   text-overflow: ellipsis;
 }
 
-.brandLogo {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  object-fit: cover;
+.brandLogo,
+.splashLogo {
+  display: inline-flex;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--login-border);
+  border-radius: 6px;
+  background: var(--login-readout-bg);
+  color: var(--login-text);
 }
 
 .languageSelect {
@@ -166,9 +148,17 @@
   width: 100%;
   max-width: 360px;
   margin-block: auto;
+  padding-bottom: 6vh;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: headingRise 480ms var(--ease-out-strong) 160ms both;
 }
 
 @keyframes headingRise {
@@ -184,12 +174,18 @@
 
 .title {
   margin: 0;
-  animation: headingRise 480ms var(--ease-out-strong) 160ms both;
-  font-size: clamp(26px, 2.2vw, 32px);
-  font-weight: 550;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
+  font-size: $text-xl;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--login-title);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: $text-sm;
+  line-height: 1.5;
+  color: var(--login-text-muted);
 }
 
 @media (max-height: 680px) {
@@ -199,20 +195,6 @@
 
   .main {
     padding: 16px 0;
-  }
-}
-
-@media (max-height: 560px) {
-  .title {
-    font-size: 24px;
-  }
-}
-
-// 移动端：表单落在顶部点阵横幅下缘附近，点阵在标题之上，不压住输入区。
-// 放在矮屏规则之后以覆盖其 padding；极矮屏（<560px）直接从顶部排布，交给滚动兜底。
-@media (max-width: $breakpoint-mobile) and (min-height: 560px) {
-  .main {
-    padding-top: calc(var(--hero-band) - 128px);
   }
 }
 
@@ -247,7 +229,6 @@
 }
 
 .container[data-phase='exiting'] {
-  .brandPanel,
   .topBar {
     animation: exitToBase 320ms cubic-bezier(0.4, 0, 0.2, 1) both;
   }
@@ -257,7 +238,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .brandPanel,
     .topBar,
     .main > * {
       animation: exitToBase 150ms ease both;
@@ -298,10 +278,9 @@
 }
 
 .splashLogo {
-  width: 56px;
-  height: 56px;
-  border-radius: 8px;
-  object-fit: cover;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
 }
 
 .splashText {
@@ -343,7 +322,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .topBar,
-  .title,
+  .heading,
   .splash {
     animation-name: chromeFade;
     animation-duration: 200ms;

@@ -197,3 +197,37 @@
     animation: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.meta {
+  font-size: $text-sm;
+  color: var(--t3-muted-foreground);
+}
+
+.metaActive {
+  color: var(--t3-success-foreground);
+}
+
+.metaProblem {
+  color: var(--t3-error-foreground);
+}
+
+.primaryAction {
+  @include t3-button(primary, sm);
+}
+
+.ghostAction {
+  @include t3-button(outline, sm);
+}
+
+.actions {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* ===== end T3 control language ===== */

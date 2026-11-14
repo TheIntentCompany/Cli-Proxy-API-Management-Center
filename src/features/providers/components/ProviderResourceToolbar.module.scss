@@ -148,3 +148,13 @@
   font-size: 13px;
   word-break: break-all;
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.dirBtn {
+  @include t3-button(outline, icon-sm);
+}
+
+.filterToolbarBtn {
+  @include t3-button(outline, sm);
+}
+/* ===== end T3 control language ===== */

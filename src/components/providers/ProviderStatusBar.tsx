@@ -9,9 +9,9 @@ const defaultStyles: Record<string, string> = {};
  * 0 → 红 (#ef4444)  →  0.5 → 金黄 (#facc15)  →  1 → 绿 (#22c55e)
  */
 const COLOR_STOPS = [
-  { r: 239, g: 68, b: 68 }, // #ef4444
-  { r: 250, g: 204, b: 21 }, // #facc15
-  { r: 34, g: 197, b: 94 }, // #22c55e
+  { r: 240, g: 77, b: 77 }, // T3 error #f04d4d
+  { r: 245, g: 158, b: 11 }, // T3 warning #f59e0b
+  { r: 16, g: 185, b: 129 }, // T3 success #10b981
 ] as const;
 
 function rateToColor(rate: number): string {

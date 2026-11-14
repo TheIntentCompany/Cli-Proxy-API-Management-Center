@@ -1,130 +1,55 @@
 @use 'sass:color';
 @use './variables.scss' as *;
+@use './mixins.scss' as *;
 
+// Buttons: T3 Code's recipes through the t3-button mixin. `secondary` is T3's outline.
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: $spacing-sm;
-  border: 1px solid transparent;
-  border-radius: $radius-md;
-  padding: 9px 14px;
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  cursor: pointer;
-  transition:
-    background-color $transition-fast,
-    border-color $transition-fast,
-    color $transition-fast;
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
+  @include t3-button(outline, md);
 
   &.btn-primary {
-    background-color: var(--primary-color);
-    color: var(--primary-contrast, #fff);
-    border-color: var(--primary-color);
-
-    &:hover {
-      background-color: var(--primary-hover);
-      border-color: var(--primary-hover);
-    }
+    @include t3-button(primary, md);
   }
 
   &.btn-secondary {
-    background-color: var(--bg-tertiary);
-    border-color: var(--border-color);
-    color: var(--text-primary);
-
-    &:hover {
-      background-color: var(--bg-hover, var(--bg-tertiary));
-      border-color: var(--border-hover);
-    }
+    @include t3-button(outline, md);
   }
 
   &.btn-ghost {
-    background: transparent;
-    border-color: transparent;
-    color: var(--text-secondary);
-
-    &:hover {
-      color: var(--text-primary);
-      background: var(--bg-tertiary);
-    }
+    @include t3-button(ghost, md);
   }
 
   &.btn-danger {
-    background-color: $error-color;
-    border-color: $error-color;
-    color: #fff;
+    @include t3-button(destructive-outline, md);
+  }
 
-    &:hover {
-      background-color: color.adjust($error-color, $lightness: -5%);
-    }
+  &.btn-sm {
+    height: $control-h-sm;
+    padding: 0 9px;
+    font-size: $text-xs;
   }
 
   &.btn-full {
     width: 100%;
   }
 
-  &.btn-sm {
-    padding: 8px 10px;
-    font-size: 14px;
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+  > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 }
 
-// Dark build: the primary action is white on black; secondary actions are hairline outlines.
-[data-theme='dark'] {
-  .btn {
-    color: var(--text-primary);
-  }
-
-  .btn.btn-primary {
-    color: var(--primary-contrast);
-  }
-
-  .btn.btn-secondary {
-    background-color: transparent;
-    border-color: var(--border-primary);
-    color: var(--text-primary);
-
-    &:hover {
-      background-color: var(--bg-tertiary);
-      border-color: var(--border-hover);
-    }
-  }
-
-  .btn.btn-ghost {
-    color: var(--text-secondary);
-
-    &:hover {
-      color: var(--text-primary);
-    }
-  }
+.input {
+  @include t3-input;
 }
 
-.input,
-textarea {
-  width: 100%;
-  border: 1px solid var(--border-color);
-  border-radius: $radius-md;
-  padding: 10px 12px;
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  transition:
-    border-color $transition-fast,
-    box-shadow $transition-fast;
-
-  &:focus {
-    outline: none;
-    border-color: var(--border-hover);
-    box-shadow: 0 0 0 3px var(--primary-8);
-  }
+textarea,
+textarea.input {
+  @include t3-input;
+  height: auto;
+  min-height: 80px;
+  padding: 8px 10px;
+  line-height: 1.5;
 }
 
 .form-group {
@@ -134,26 +59,20 @@ textarea {
   margin-bottom: $spacing-md;
 
   label {
-    font-weight: 550;
+    font-size: $text-sm;
+    font-weight: 500;
     color: var(--text-primary);
   }
 
   .hint {
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: $text-xs;
   }
 }
 
 .card {
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: $radius-lg;
-  box-shadow: var(--shadow);
-  padding: $spacing-lg;
-}
-
-[data-theme='dark'] .card {
-  background-color: var(--bg-secondary);
+  @include t3-surface(12px);
+  padding: 20px;
 }
 
 .card-header {
@@ -179,50 +98,36 @@ textarea {
 }
 
 .status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: $radius-full;
-  font-size: 13px;
-  border: 1px solid var(--border-color);
+  @include t3-badge(neutral);
+  height: 22px;
+  padding: 0 8px;
+  font-size: $text-xs;
   margin-bottom: $spacing-md;
 
-  // 确保后续内容换行显示
   + * {
     display: block;
   }
 
   &.success {
-    color: $success-color;
-    border-color: rgba($success-color, 0.35);
-    background: rgba($success-color, 0.08);
+    @include t3-badge(success);
+    height: 22px;
+    padding: 0 8px;
   }
 
-  &.warning {
-    color: $warning-color;
-    border-color: rgba($warning-color, 0.35);
-    background: rgba($warning-color, 0.08);
-  }
-
+  &.warning,
   &.error {
-    color: $error-color;
-    border-color: rgba($error-color, 0.35);
-    background: rgba($error-color, 0.08);
+    @include t3-badge(error);
+    height: 22px;
+    padding: 0 8px;
   }
 
   &.muted {
-    color: var(--text-secondary);
+    color: var(--t3-muted-foreground);
   }
 }
 
 .pill {
-  padding: 4px 10px;
-  border-radius: $radius-full;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  font-size: 12px;
+  @include t3-badge(neutral);
 }
 
 .loading-spinner {
@@ -254,7 +159,7 @@ textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--t3-backdrop);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -288,33 +193,33 @@ textarea {
   }
 }
 
+// Dialogs: T3 Code's dialog surface (16px radius, popover fill, hairline border).
 .modal {
-  background: var(--bg-primary);
-  border-radius: $radius-lg;
-  border: 1px solid var(--border-color);
-  box-shadow: $shadow-lg;
+  background: var(--t3-popover);
+  border-radius: 16px;
+  border: 1px solid var(--t3-border);
+  box-shadow: var(--t3-shadow-popover);
   max-width: 100%;
   max-height: 90vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   position: relative;
-  // 关闭按钮中心位置: right 12px + 16px = 28px, top 12px + 16px = 28px
-  transform-origin: calc(100% - 28px) 28px;
+  transform-origin: center;
 
   &.modal-entering {
-    animation: modal-scale-in 0.22s var(--ease-out-strong) forwards;
+    animation: modal-scale-in 0.2s ease-in-out forwards;
   }
 
   &.modal-closing {
-    animation: modal-collapse-to-close 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: modal-collapse-to-close 0.15s ease-in forwards;
   }
 }
 
 @keyframes modal-scale-in {
   from {
     opacity: 0;
-    transform: scale(0.97) translateY(6px);
+    transform: scale(0.98);
   }
   to {
     opacity: 1;
@@ -329,79 +234,53 @@ textarea {
   }
   100% {
     opacity: 0;
-    transform: scale(0);
+    transform: scale(0.98);
   }
 }
 
 .modal-close-floating {
+  @include t3-button(ghost, icon-sm);
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  cursor: pointer;
-  border-radius: $radius-full;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    color 0.15s ease,
-    background-color 0.15s ease,
-    transform 0.15s ease;
   z-index: 10;
 
   svg {
     display: block;
-  }
-
-  &:hover {
-    color: var(--text-primary);
-    background: var(--bg-tertiary);
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-    transform: none;
-  }
-
-  &:disabled:hover {
-    color: var(--text-secondary);
-    background: var(--bg-secondary);
-    transform: none;
   }
 }
 
 .modal-header {
   display: flex;
   align-items: center;
-  padding: $spacing-md $spacing-lg;
-  border-bottom: 1px solid var(--border-color);
+  min-height: 56px;
+  padding: 16px 52px 12px 20px;
 
   .modal-title {
-    font-weight: 550;
-    font-size: 16px;
-    color: var(--text-primary);
+    font-weight: 600;
+    font-size: $text-lg;
+    line-height: 1.35;
+    color: var(--t3-foreground);
+    overflow-wrap: anywhere;
   }
 }
 
 .modal-body {
-  padding: $spacing-lg;
+  padding: 4px 20px 20px;
   overflow: auto;
   max-height: 65vh;
+  color: var(--t3-muted-foreground);
+  font-size: $text-sm;
+  line-height: 1.55;
 }
 
 .modal-footer {
-  padding: $spacing-md $spacing-lg;
-  border-top: 1px solid var(--border-color);
+  padding: 12px 20px;
+  border-top: 1px solid var(--t3-border);
   display: flex;
   justify-content: flex-end;
-  gap: $spacing-sm;
-  background: var(--bg-primary);
+  gap: 8px;
+  background: var(--t3-secondary);
 }
 
 @media (max-width: $breakpoint-mobile) {
@@ -458,63 +337,60 @@ textarea {
   }
 }
 
+// Empty states: T3 Code's empty block, a bordered icon tile over a title and one line.
 .empty-state {
-  border: 1px dashed var(--border-color);
-  border-radius: $radius-lg;
-  padding: $spacing-lg;
-  background: var(--bg-secondary);
   display: flex;
-  justify-content: space-between;
-  gap: $spacing-md;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 220px;
+  padding: 32px 24px;
+  border: 1px dashed var(--t3-border);
+  border-radius: 12px;
+  text-align: center;
 
   .empty-content {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: $spacing-md;
+    gap: 12px;
+    max-width: 380px;
   }
 
   .empty-icon {
-    width: 42px;
-    height: 42px;
-    flex: 0 0 42px;
-    border-radius: $radius-full;
-    border: 2px solid var(--border-color);
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    border-radius: 8px;
+    border: 1px solid var(--t3-border);
+    background: var(--t3-card);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     line-height: 0;
-    color: var(--text-secondary);
+    color: var(--t3-foreground);
+    box-shadow: var(--t3-highlight);
 
     svg {
       display: block;
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       flex-shrink: 0;
     }
   }
 
   .empty-title {
-    font-weight: 550;
-    color: var(--text-primary);
+    font-size: $text-base;
+    font-weight: 600;
+    color: var(--t3-foreground);
   }
 
   .empty-desc {
-    color: var(--text-secondary);
+    color: var(--t3-muted-foreground);
+    font-size: $text-sm;
     margin-top: 4px;
-  }
-
-  .empty-action .btn > span {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    line-height: 1;
-  }
-
-  .empty-action .btn svg {
-    display: block;
-    flex-shrink: 0;
+    text-wrap: balance;
   }
 }
 
@@ -525,47 +401,49 @@ textarea {
 }
 
 .item-row {
-  border: 1px solid var(--border-color);
-  border-radius: $radius-md;
-  padding: $spacing-md;
-  background: var(--bg-primary);
+  border: 1px solid var(--t3-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--t3-card);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: $spacing-md;
+  gap: 12px;
   flex-wrap: wrap;
+  min-width: 0;
 
   .item-meta {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
+    min-width: 0;
   }
 
   .item-title {
-    font-weight: 550;
-    color: var(--text-primary);
+    font-weight: 500;
+    color: var(--t3-foreground);
   }
 
   .item-subtitle {
-    color: var(--text-secondary);
-    font-family:
-      ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-      'Courier New', monospace;
-    word-break: break-all;
+    color: var(--t3-muted-foreground);
+    font-family: $font-code;
+    font-size: $text-xs;
+    overflow-wrap: anywhere;
   }
 
   .item-actions {
     display: flex;
-    gap: $spacing-sm;
+    gap: 8px;
   }
 }
 
 .error-box {
-  background: rgba($error-color, 0.1);
-  border: 1px solid rgba($error-color, 0.4);
-  border-radius: $radius-md;
-  padding: $spacing-sm $spacing-md;
-  color: $error-color;
+  background: var(--t3-error-surface);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--t3-error-foreground);
+  font-size: $text-sm;
+  overflow-wrap: anywhere;
 }
 
 .stack {

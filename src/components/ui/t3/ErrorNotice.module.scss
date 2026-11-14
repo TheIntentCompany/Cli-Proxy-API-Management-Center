@@ -1,0 +1,68 @@
+@use '../../../styles/mixins' as *;
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: $text-xs;
+  line-height: 1.5;
+}
+
+.error {
+  background: var(--t3-error-surface);
+  color: var(--t3-error-foreground);
+}
+
+.warning {
+  background: var(--t3-warning-surface);
+  color: var(--t3-warning-foreground);
+}
+
+.dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.body {
+  min-width: 0;
+  flex: 1;
+}
+
+.summary {
+  margin: 0;
+  color: var(--t3-foreground);
+  overflow-wrap: anywhere;
+}
+
+.details {
+  margin-top: 4px;
+
+  summary {
+    width: fit-content;
+    color: currentColor;
+    cursor: pointer;
+    font-weight: 500;
+    list-style-position: inside;
+  }
+
+  pre {
+    margin: 6px 0 0;
+    max-height: 180px;
+    overflow: auto;
+    padding: 8px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--t3-muted-foreground);
+    font-family: $font-code;
+    font-size: $text-2xs;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}

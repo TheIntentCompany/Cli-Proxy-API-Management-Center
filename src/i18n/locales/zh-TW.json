@@ -54,7 +54,8 @@
     "model_alias_placeholder": "模型別名（選填）",
     "invalid_provider_index": "無效的供應商索引。",
     "unsaved_changes_title": "未儲存的變更",
-    "unsaved_changes_message": "你有未儲存的變更，離開後將遺失這些變更。確定要離開嗎？"
+    "unsaved_changes_message": "你有未儲存的變更，離開後將遺失這些變更。確定要離開嗎？",
+    "details": "詳情"
   },
   "title": {
     "login": "CLI Proxy API Management Center",
@@ -90,11 +91,14 @@
     "error_legacy_backend": "目前後端可使用 v0 管理介面，但不支援 v8。請將 CLIProxyAPI 升級至 v8 或更新版本後再使用此管理頁面。",
     "error_server": "後端處理管理介面時發生錯誤，請查看服務日誌",
     "error_cors": "跨域請求被阻擋，請檢查伺服器設定",
-    "error_ssl": "SSL/TLS 憑證驗證失敗"
+    "error_ssl": "SSL/TLS 憑證驗證失敗",
+    "title": "登入 CLIProxyAPI",
+    "subtitle": "輸入此閘道的管理金鑰。"
   },
   "header": {
     "refresh_all": "全部重新整理",
-    "logout": "登出"
+    "logout": "登出",
+    "breadcrumb": "位置"
   },
   "connection": {
     "status": "連線狀態:"
@@ -248,6 +252,20 @@
     "overage": "超限後使用額度：{{state}}"
   },
   "codex_lb": {
+    "refreshed": "已透過 codex-lb 重新整理 {{name}}。",
+    "reset_done": "已為 {{name}} 使用一次重置。",
+    "reset_confirm_title": "使用一次可用重置？",
+    "reset_confirm_message": "codex-lb 將為「{{name}}」使用一次重置並清空用量視窗，無法復原。",
+    "reset_confirm_button": "使用重置",
+    "refresh_hint": "讓 codex-lb 發送一次探測請求並重新讀取用量",
+    "reset_hint": "透過 codex-lb 使用一次重置",
+    "reset_count": "重置（{{count}}）",
+    "reset": "重置",
+    "status_label": "狀態",
+    "resets_unknown": "尚未回報",
+    "resets_unusable": "{{count}} 個在此方案不可用",
+    "resets_dates_unavailable": "連接 codex-lb 操作中繼後會顯示到期時間。",
+    "key_label": "codex-lb 金鑰",
     "monthly": "每月",
     "via": "Codex · 經由 codex-lb",
     "section_title": "經由 codex-lb 接入",
@@ -1973,7 +1991,10 @@
     "invalid_json": "請輸入有效 JSON",
     "expected_array": "請輸入 JSON 陣列",
     "expected_object": "請輸入 JSON 物件",
-    "invalid_enum": "請選擇宣告的枚舉值"
+    "invalid_enum": "請選擇宣告的枚舉值",
+    "no_match_title": "沒有符合的外掛",
+    "no_match_desc": "換個名稱試試，或清除搜尋。",
+    "clear_search": "清除搜尋"
   },
   "plugin_store": {
     "title": "插件商店",
@@ -2271,7 +2292,7 @@
       "activeCount": "{{active}}/{{total}} 活躍"
     },
     "providerNames": {
-       "aiCodeMirror": "AIcodemirror",
+      "aiCodeMirror": "AIcodemirror",
       "meta": "Muse (Meta)",
       "gemini": "Gemini",
       "interactions": "Interactions API",
@@ -2334,8 +2355,8 @@
       "urlMode": "{{provider}} URL",
       "urlHint": "不同 URL 的使用規範一致,儲存時只會寫入目前分組協議對應位址。",
       "urlOptions": {
-         "aiCodeMirrorGlobal": "全球高保線路",
-         "aiCodeMirrorDomestic": "國內優化線路",
+        "aiCodeMirrorGlobal": "全球高保線路",
+        "aiCodeMirrorDomestic": "國內優化線路",
         "standard": "普通 URL",
         "direct": "專線直連 URL",
         "domestic": "中國大陸線路",
@@ -2344,8 +2365,8 @@
         "global": "全球"
       },
       "urlOptionDescriptions": {
-         "aiCodeMirrorGlobal": "適用於全球存取的高防護線路。",
-         "aiCodeMirrorDomestic": "針對中國大陸網路最佳化的線路。",
+        "aiCodeMirrorGlobal": "適用於全球存取的高防護線路。",
+        "aiCodeMirrorDomestic": "針對中國大陸網路最佳化的線路。",
         "domestic": "面向中國大陸使用者和部署在中國大陸網路環境中的業務，通常可獲得更低延遲。",
         "overseas": "面向海外部署、跨境存取或需要存取境外模型的業務。",
         "mainlandChinaRecommended": "推薦中國大陸使用者和部署在中國大陸網路環境中的業務使用。",

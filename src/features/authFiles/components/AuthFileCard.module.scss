@@ -18,13 +18,15 @@
   transition: background-color 160ms var(--ease-out-strong, ease-out);
 }
 
-/* Wide screens: identity | recent requests | actions on one row; anything else
- * (notes, warnings, cooldowns, SIWC) spans the full width underneath. */
-@media (min-width: 1100px) {
+/* Layout follows the list's own width (container queries on .grid in AuthFilesPage), so
+ * a row never asks for more room than it has. Wide: identity | requests | actions on one
+ * row. Medium: identity | requests, with actions on their own line. Narrow: stacked.
+ * Anything else (notes, errors, cooldowns, SIWC) spans the full width underneath. */
+@container accounts (min-width: 640px) {
   .card {
     display: grid;
-    grid-template-columns: minmax(260px, 1.5fr) minmax(220px, 1fr) auto;
-    column-gap: 36px;
+    grid-template-columns: minmax(0, 1.4fr) minmax(180px, 1fr);
+    column-gap: 32px;
     row-gap: 6px;
     align-items: center;
 
@@ -54,11 +56,22 @@
     }
 
     > .actions {
+      margin-top: 4px;
+      padding-top: 0;
+      border-top: 0;
+      justify-content: flex-start;
+    }
+  }
+}
+
+@container accounts (min-width: 1000px) {
+  .card {
+    grid-template-columns: minmax(0, 1.4fr) minmax(200px, 0.9fr) auto;
+
+    > .actions {
       grid-column: 3;
       grid-row: 1 / span 3;
       margin-top: 0;
-      padding-top: 0;
-      border-top: 0;
     }
   }
 }
@@ -120,9 +133,9 @@
   gap: 4px 8px;
   min-width: 0;
   margin: 0;
-  font-size: 15px;
-  font-weight: 550;
-  line-height: 1.6;
+  font-size: $text-base;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 /* 品牌药丸与账号按盒子中心对齐，避免不同字号的基线造成视觉偏移。 */
@@ -153,9 +166,7 @@
 .account {
   flex: 1 1 12ch;
   min-width: 0;
-  letter-spacing: -0.005em;
-  color: var(--text-primary);
-  overflow-wrap: anywhere;
+  color: var(--t3-foreground);
 }
 
 /* 无账号线索时主行回落到文件名，沿用 mono 语汇。
@@ -168,13 +179,13 @@
 /* 副行：满卡宽的文件名。email 在 codex 名字的中段，必须能换行才不丢信息，
    overflow-wrap + -webkit-box 的组合与本文件 .warning span 同配方。 */
 .fileName {
-  margin: -4px 0 0;
-  font-family: $font-mono;
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--text-tertiary);
-  overflow-wrap: anywhere;
-  @include text-ellipsis-multiline(2);
+  display: flex;
+  min-width: 0;
+  margin: -2px 0 0;
+  font-family: $font-code;
+  font-size: $text-2xs;
+  line-height: 1.5;
+  color: var(--t3-subtle-foreground);
 }
 
 .note {
@@ -188,22 +199,7 @@
 /* ---------- 告警行 ---------- */
 
 .warning {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--warning-text);
-  background: var(--warning-bg);
-  border: 1px solid var(--warning-border);
-  border-radius: 8px;
-  padding: 7px 9px;
-
-  span {
-    min-width: 0;
-    overflow-wrap: anywhere;
-    @include text-ellipsis-multiline(2);
-  }
+  min-width: 0;
 }
 
 .warningIcon {
@@ -227,21 +223,17 @@
 }
 
 .healthLabel {
-  font-family: $font-mono;
-  font-size: 10px;
-  font-weight: 550;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
+  font-size: $text-xs;
+  font-weight: 500;
+  color: var(--t3-subtle-foreground);
 }
 
 .healthCounts {
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
-  font-family: $font-mono;
-  font-size: 11.5px;
-  font-weight: 550;
+  font-size: $text-xs;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
@@ -284,7 +276,7 @@
 }
 
 .statusBlock {
-  height: 14px;
+  height: 12px;
   border-radius: 2px;
 }
 
@@ -298,9 +290,8 @@
 }
 
 .statusRate {
-  font-family: $font-mono;
-  font-size: 11.5px;
-  font-weight: 550;
+  font-size: $text-xs;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: var(--text-quaternary);
   min-width: 40px;
@@ -577,3 +568,44 @@
     transform: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.actions {
+  gap: 8px;
+  border-top-color: var(--t3-border);
+}
+
+.iconButton {
+  width: $control-h-sm;
+  min-width: $control-h-sm;
+  padding: 0;
+}
+
+.toggleLabel {
+  font-size: $text-xs;
+  color: var(--t3-subtle-foreground);
+}
+
+.providerText {
+  font-size: $text-xs;
+  font-weight: 500;
+}
+
+.metaRow {
+  font-size: $text-2xs;
+  color: var(--t3-subtle-foreground);
+  gap: 4px 6px;
+}
+
+.countLive.countOk {
+  color: var(--t3-muted-foreground);
+}
+
+.countLive.countFail {
+  color: var(--t3-error-foreground);
+}
+
+.statusRateHigh {
+  color: var(--t3-muted-foreground);
+}
+/* ===== end T3 control language ===== */

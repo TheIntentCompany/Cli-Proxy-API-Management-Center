@@ -584,3 +584,16 @@
     }
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.statusPill {
+  @include t3-badge(neutral);
+}
+/* ===== end T3 control language ===== */

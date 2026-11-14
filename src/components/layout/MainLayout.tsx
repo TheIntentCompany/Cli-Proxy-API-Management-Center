@@ -32,7 +32,6 @@ import {
   IconSidebarSystem,
   IconChevronDown,
 } from '@/components/ui/icons';
-import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import {
   useAuthStore,
   useLoginTransitionStore,
@@ -708,6 +707,17 @@ export function MainLayout() {
       : []),
   ];
   const navItems = navGroups.flatMap((group) => flattenNavItems(group.items));
+  // Breadcrumb for the top bar: the gateway, then the page you are on (sub-pages fall back
+  // to their section, for example the OAuth editors under Accounts).
+  const currentPath = location.pathname === '/dashboard' ? '/' : location.pathname;
+  const currentNavItem =
+    navItems.find((item) => item.path === currentPath) ??
+    navItems
+      .filter((item) => item.path !== '/' && currentPath.startsWith(`${item.path}/`))
+      .sort((a, b) => b.path.length - a.path.length)[0];
+  const currentPageLabel = currentNavItem
+    ? (currentNavItem.label ?? (currentNavItem.labelKey ? t(currentNavItem.labelKey) : ''))
+    : '';
   const navOrder = navItems.map((item) => item.path);
   const getRouteOrder = (pathname: string) => {
     const trimmedPath =
@@ -985,8 +995,6 @@ export function MainLayout() {
         isPluginResourcePage ? 'plugin-resource-shell' : ''
       } ${arrivingFromLogin ? 'app-shell--arriving' : ''}`}
     >
-      <div className="top-gradient-blur" aria-hidden="true" />
-
       <header className="main-header" ref={headerRef}>
         <button
           type="button"
@@ -1011,6 +1019,23 @@ export function MainLayout() {
           {sidebarCollapsed ? headerIcons.chevronRight : headerIcons.chevronLeft}
         </button>
 
+        <nav
+          className="header-breadcrumb"
+          aria-label={t('header.breadcrumb', { defaultValue: 'Location' })}
+        >
+          <span className="header-breadcrumb-root">{abbrBrandName}</span>
+          {currentPageLabel && (
+            <>
+              <span className="header-breadcrumb-sep" aria-hidden="true">
+                /
+              </span>
+              <span className="header-breadcrumb-current" aria-current="page">
+                {currentPageLabel}
+              </span>
+            </>
+          )}
+        </nav>
+
         <div className="mobile-sidebar-actions">
           <Button
             className="mobile-menu-btn"
@@ -1024,7 +1049,7 @@ export function MainLayout() {
           </Button>
         </div>
 
-        <div className="header-actions floating-actions">
+        <div className="header-actions">
           <Button
             variant="ghost"
             size="sm"
@@ -1161,11 +1186,12 @@ export function MainLayout() {
         >
           <div className="sidebar-header">
             <div className="sidebar-brand" title={fullBrandName}>
-              <img src={INLINE_LOGO_JPEG} alt="CPAMC logo" className="sidebar-brand-logo" />
+              <span className="sidebar-brand-mark" aria-hidden="true">
+                <IconSidebarRouting size={14} />
+              </span>
               {showSidebarLabels && (
                 <span className="sidebar-brand-text">
                   <span className="sidebar-brand-title">{abbrBrandName}</span>
-                  <span className="sidebar-brand-subtitle">{t('sidebar.subtitle')}</span>
                 </span>
               )}
             </div>

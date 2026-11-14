@@ -78,6 +78,13 @@ WHERE ka.api_key_id = ?
 ORDER BY a.email
 """
 
+# One row per account (primary key account_id): codex-lb's latest usage-details read.
+USAGE_DETAILS_SQL = """
+SELECT reset_credits_applicable_count, recorded_at
+FROM account_usage_details
+WHERE account_id = ?
+"""
+
 # Matches idx_usage_window_account_latest (coalesce(window,'primary'), account_id,
 # recorded_at DESC, id DESC): one index probe per window.
 LATEST_WINDOW_SQL = """
@@ -204,6 +211,19 @@ def _connection(busy_ms):
     return _conn
 
 
+def _usage_details(conn, account_id):
+    """Banked resets codex-lb last saw as redeemable for this account (count only)."""
+    row = conn.execute(USAGE_DETAILS_SQL, (account_id,)).fetchone()
+    if row is None:
+        return {"reset_credits_available": None, "details_recorded_at": None}
+    count, recorded_at = row
+    try:
+        count = max(0, int(count)) if count is not None else None
+    except (TypeError, ValueError):
+        count = None
+    return {"reset_credits_available": count, "details_recorded_at": _iso(_parse_time(recorded_at))}
+
+
 def read_status():
     """Read within REFRESH_DEADLINE_SECONDS, reconnecting and retrying while the
     database cannot be opened. Callers hold the cache lock."""
@@ -254,6 +274,7 @@ def _read_once(deadline):
                             "status_reason": reason or None,
                             "blocked_until": _epoch(reset_at),
                             "windows": _windows(conn, account_id),
+                            **_usage_details(conn, account_id),
                         }
                     )
             keys.append(

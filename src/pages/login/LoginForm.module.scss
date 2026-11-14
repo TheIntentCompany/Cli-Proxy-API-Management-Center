@@ -1,5 +1,6 @@
-$field-height: 44px;
-$field-radius: 10px;
+@use '../../styles/mixins' as *;
+$field-height: 36px;
+$field-radius: $control-radius;
 
 @keyframes fieldRise {
   from {
@@ -24,7 +25,7 @@ $field-radius: 10px;
 .form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 
   > [data-stagger] {
     animation: fieldRise 420ms var(--ease-out-strong) both;
@@ -58,10 +59,10 @@ $field-radius: 10px;
 }
 
 .label {
-  font-size: 13px;
+  font-size: $text-sm;
   font-weight: 500;
   line-height: 1.4;
-  color: var(--text-secondary);
+  color: var(--login-text);
 }
 
 .textButton {
@@ -100,12 +101,12 @@ $field-radius: 10px;
 .readout {
   width: 100%;
   height: $field-height;
-  padding: 0 14px;
+  padding: 0 12px;
   border-radius: $field-radius;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--login-border);
   background: var(--login-field-bg);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: $text-sm;
 }
 
 .input {
@@ -128,7 +129,7 @@ $field-radius: 10px;
     outline: none;
     border-color: var(--login-focus-border);
     background: var(--login-field-bg-focus);
-    box-shadow: 0 0 0 4px var(--login-focus-ring);
+    box-shadow: 0 0 0 3px var(--login-focus-ring);
   }
 
   &[aria-invalid='true'] {
@@ -152,8 +153,8 @@ $field-radius: 10px;
 }
 
 .mono {
-  font-family: $font-mono;
-  font-size: 13px;
+  font-family: $font-code;
+  font-size: $text-xs;
 }
 
 .inputWrap {
@@ -161,15 +162,15 @@ $field-radius: 10px;
 }
 
 .inputWithAction {
-  padding-right: 48px;
+  padding-right: 40px;
 }
 
 .iconButton {
   position: absolute;
   top: 50%;
-  right: 6px;
-  width: 32px;
-  height: 32px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -208,15 +209,15 @@ $field-radius: 10px;
 }
 
 .checkboxLabel {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
+  font-size: $text-sm;
+  font-weight: 400;
+  color: var(--login-text-muted);
 }
 
 .actions {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   margin-top: 4px;
 }
 
@@ -232,10 +233,10 @@ $field-radius: 10px;
   background: var(--login-submit-bg);
   color: var(--login-submit-fg);
   font: inherit;
-  font-size: 14px;
-  font-weight: 550;
-  letter-spacing: 0.01em;
+  font-size: $text-sm;
+  font-weight: 500;
   cursor: pointer;
+  box-shadow: var(--login-submit-shadow);
   transition:
     transform var(--dur-press) var(--ease-out-strong),
     background-color var(--dur-hover) ease,
@@ -331,29 +332,22 @@ $field-radius: 10px;
 }
 
 .error {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--login-error);
   animation: errorIn 200ms var(--ease-out-strong);
-
-  svg {
-    flex-shrink: 0;
-    margin-top: 3px;
-  }
-
-  span {
-    display: -webkit-box;
-    -webkit-line-clamp: 4;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    overflow-wrap: anywhere;
-  }
 
   @media (prefers-reduced-motion: reduce) {
     animation: fieldFade 200ms ease;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.iconButton {
+  @include t3-button(ghost, icon-sm);
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  &:active {
+    transform: translateY(-50%) scale(0.92);
+  }
+}
+/* ===== end T3 control language ===== */

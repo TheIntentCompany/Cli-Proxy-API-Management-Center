@@ -295,3 +295,49 @@
     animation: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.search {
+  position: relative;
+  :global(.input) {
+    height: $control-h;
+    border-radius: $control-radius;
+    padding-right: 32px;
+  }
+}
+
+.segmented {
+  @include t3-segmented;
+}
+
+.segment {
+  @include t3-segmented-item(false);
+}
+
+.segmentActive {
+  @include t3-segmented-item(true);
+}
+
+.displayButton {
+  @include t3-button(outline, md);
+}
+
+.displayButtonActive {
+  background: var(--t3-input-fill-hover);
+}
+
+.deleteAction {
+  @include t3-button(destructive-outline, md);
+}
+
+.searchIcon {
+  color: var(--t3-subtle-foreground);
+}
+
+.popover {
+  background: var(--t3-popover);
+  border: 1px solid var(--t3-border);
+  border-radius: 10px;
+  box-shadow: var(--t3-shadow-popover);
+}
+/* ===== end T3 control language ===== */

@@ -5,17 +5,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CodexQuotaState } from '@/types';
-import {
-  normalizePlanType,
-  BUSINESS_PREMIUM_CODEX_PLAN_TYPE,
-  PRO_CODEX_PLAN_TYPE,
-  PRO_LITE_CODEX_PLAN_TYPES,
-  PRO_MAX_CODEX_PLAN_TYPES,
-  buildResetDisplay,
-  formatInstantShort,
-  parseIsoToMs,
-  resolveResetMs,
-} from '@/utils/quota';
+import { buildResetDisplay, formatInstantShort, parseIsoToMs, resolveResetMs } from '@/utils/quota';
 import { resolveTimeZoneLabel } from '@/utils/time/timezone';
 import { formatDateTimeValue } from '@/utils/format';
 import { useNow } from '@/hooks/useNow';
@@ -24,6 +14,7 @@ import { QuotaResetLabel } from '../../components/QuotaResetLabel';
 import { collectQuotaRowInstants, pickUrgentRowId, resetCreditRowId } from '../../resetSchedule';
 import { planValueClassForTier, resolveCodexCardTier } from '../../cardTier';
 import type { QuotaBodyProps } from '../../types';
+import { codexPlanLabel } from './planLabel';
 
 export function CodexQuotaBody({
   quota,
@@ -49,22 +40,7 @@ export function CodexQuotaBody({
   const rateLimitResetCredits = quota.rateLimitResetCredits ?? [];
   const rateLimitResetCreditsError = quota.rateLimitResetCreditsError ?? '';
 
-  const getPlanLabel = (pt?: string | null): string | null => {
-    const normalized = normalizePlanType(pt);
-    if (!normalized) return null;
-    if (normalized === BUSINESS_PREMIUM_CODEX_PLAN_TYPE) {
-      return t('codex_quota.plan_business_premium');
-    }
-    if (PRO_MAX_CODEX_PLAN_TYPES.has(normalized)) return t('codex_quota.plan_promax');
-    if (normalized === PRO_CODEX_PLAN_TYPE) return t('codex_quota.plan_pro');
-    if (PRO_LITE_CODEX_PLAN_TYPES.has(normalized)) return t('codex_quota.plan_prolite');
-    if (normalized === 'plus') return t('codex_quota.plan_plus');
-    if (normalized === 'team') return t('codex_quota.plan_team');
-    if (normalized === 'free') return t('codex_quota.plan_free');
-    return pt || normalized;
-  };
-
-  const planLabel = getPlanLabel(planType);
+  const planLabel = codexPlanLabel(t, planType);
   const planValueClass = planValueClassForTier(resolveCodexCardTier(planType), classes);
 
   // Renewal was the one date on this card in a different shape (a full

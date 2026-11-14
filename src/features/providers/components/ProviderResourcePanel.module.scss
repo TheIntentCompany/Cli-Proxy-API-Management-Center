@@ -334,3 +334,13 @@
     outline-color: var(--amber-color);
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.emptyActionButton {
+  @include t3-button(outline, sm);
+}
+
+.emptyActionButtonEmphasis {
+  @include t3-button(primary, sm);
+}
+/* ===== end T3 control language ===== */

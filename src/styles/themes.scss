@@ -2,7 +2,77 @@
  * 主题样式
  */
 
-// 浅色主题（默认）
+// T3 Code's light tokens (MIT, see THIRD_PARTY_NOTICES.md): zinc neutrals, white raised
+// surfaces and a blue primary. Included at the end of the light themes so the older token
+// names map onto them.
+@mixin t3-light-tokens {
+  color-scheme: light;
+  --t3-background: #fdfdfd;
+  --t3-card: #ffffff;
+  --t3-popover: #ffffff;
+  --t3-foreground: #18181b;
+  --t3-muted-foreground: #71717a;
+  --t3-subtle-foreground: #a1a1aa;
+  --t3-faint-foreground: #d4d4d8;
+  --t3-secondary: #fafafa;
+  --t3-muted: #fafafa;
+  --t3-accent: #f4f4f5;
+  --t3-border: #e4e4e7;
+  --t3-border-strong: #d4d4d8;
+  --t3-input: #d4d4d8;
+  --t3-input-fill: #ffffff;
+  --t3-input-fill-hover: #f4f4f5;
+  --t3-primary: #1b4ed8;
+  --t3-primary-hover: #2a5be0;
+  --t3-primary-foreground: #ffffff;
+  --t3-ring: #1b4ed8;
+  --t3-error: #ef4444;
+  --t3-error-foreground: #b91c1c;
+  --t3-error-surface: rgba(239, 68, 68, 0.08);
+  --t3-success: #10b981;
+  --t3-success-foreground: #047857;
+  --t3-success-surface: rgba(16, 185, 129, 0.08);
+  --t3-warning: #f59e0b;
+  --t3-warning-foreground: #b45309;
+  --t3-warning-surface: rgba(245, 158, 11, 0.08);
+  --t3-info-foreground: #1d4ed8;
+  --t3-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --t3-shadow-popover: 0 16px 32px -12px rgba(0, 0, 0, 0.18), 0 0 0 1px #e4e4e7;
+  --t3-backdrop: rgba(0, 0, 0, 0.32);
+
+  --bg-secondary: var(--t3-background);
+  --bg-primary: var(--t3-card);
+  --bg-tertiary: var(--t3-accent);
+  --bg-hover: var(--t3-accent);
+  --bg-quinary: var(--t3-background);
+  --floating-surface: var(--t3-popover);
+  --floating-shadow: var(--t3-shadow-popover);
+  --text-primary: var(--t3-foreground);
+  --text-secondary: var(--t3-muted-foreground);
+  --text-tertiary: var(--t3-subtle-foreground);
+  --text-quaternary: var(--t3-faint-foreground);
+  --border-color: var(--t3-border);
+  --border-primary: var(--t3-input);
+  --border-hover: var(--t3-border-strong);
+  --primary-color: var(--t3-primary);
+  --primary-hover: var(--t3-primary-hover);
+  --primary-active: var(--t3-primary);
+  --primary-contrast: var(--t3-primary-foreground);
+  --accent-color: var(--t3-primary);
+  --accent-soft: rgba(27, 78, 216, 0.1);
+  --primary-8: rgba(27, 78, 216, 0.06);
+  --primary-10: rgba(27, 78, 216, 0.08);
+  --primary-30: rgba(27, 78, 216, 0.24);
+  --error-color: var(--t3-error);
+  --warning-color: var(--t3-error);
+  --warning-text: var(--t3-error-foreground);
+  --radius-md: 8px;
+  --viz-claude: #c4613f;
+  --viz-codex: #18181b;
+  --viz-grid: #ececee;
+}
+
+// Light theme (default)
 :root {
   // 极简暖灰：浅色模式
   --bg-secondary: #faf9f5; // 页面背景（纸感）
@@ -97,6 +167,8 @@
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
   --dur-press: 160ms;
   --dur-hover: 200ms;
+
+  @include t3-light-tokens;
 }
 
 // 纯白主题
@@ -167,95 +239,133 @@
   --muted-bg: var(--bg-tertiary);
   --muted-foreground: var(--text-secondary);
   --accent-bg: var(--bg-tertiary);
+
+  @include t3-light-tokens;
 }
 
 // Dark theme: near-black surfaces separated by hairlines, the default for this build.
+// Dark theme: T3 Code's dark tokens (MIT, see THIRD_PARTY_NOTICES.md). A true-black canvas,
+// raised surfaces at neutral-950 + 3% white, hairline borders at 8% white and inputs at 11%.
+// The older token names below map onto these so every existing module follows.
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg-secondary: #000000; // page
-  --bg-primary: #0a0a0a; // panels and cards
-  --bg-tertiary: #141414; // hover and secondary fills
-  --bg-hover: #181818;
-  --bg-quinary: #050505;
-  --bg-error-light: rgba(229, 72, 77, 0.14);
-  --floating-surface: #111111;
-  --floating-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px #222222;
 
-  --text-primary: #ededed;
-  --text-secondary: #a1a1a1;
-  --text-tertiary: #737373;
-  --text-quaternary: #4a4a4a;
+  --t3-background: #000000;
+  --t3-card: #111111;
+  --t3-popover: #111111;
+  --t3-foreground: #f5f5f5;
+  --t3-muted-foreground: #a3a3a3;
+  --t3-subtle-foreground: #737373;
+  --t3-faint-foreground: #525252;
+  --t3-secondary: rgba(255, 255, 255, 0.03);
+  --t3-muted: rgba(255, 255, 255, 0.03);
+  --t3-accent: rgba(255, 255, 255, 0.04);
+  --t3-border: rgba(255, 255, 255, 0.08);
+  --t3-border-strong: rgba(255, 255, 255, 0.14);
+  --t3-input: rgba(255, 255, 255, 0.11);
+  --t3-input-fill: rgba(255, 255, 255, 0.035);
+  --t3-input-fill-hover: rgba(255, 255, 255, 0.07);
+  --t3-primary: #346bf1;
+  --t3-primary-hover: #4a7cf3;
+  --t3-primary-foreground: #ffffff;
+  --t3-ring: #346bf1;
+  --t3-error: #f04d4d;
+  --t3-error-foreground: #f87171;
+  --t3-error-surface: rgba(240, 77, 77, 0.16);
+  --t3-success: #10b981;
+  --t3-success-foreground: #34d399;
+  --t3-success-surface: rgba(16, 185, 129, 0.16);
+  --t3-warning: #f59e0b;
+  --t3-warning-foreground: #fbbf24;
+  --t3-warning-surface: rgba(245, 158, 11, 0.16);
+  --t3-info-foreground: #60a5fa;
+  --t3-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --t3-shadow-popover: 0 20px 40px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --t3-backdrop: rgba(0, 0, 0, 0.6);
+
+  --bg-secondary: var(--t3-background);
+  --bg-primary: var(--t3-card);
+  --bg-tertiary: rgba(255, 255, 255, 0.05);
+  --bg-hover: var(--t3-accent);
+  --bg-quinary: var(--t3-background);
+  --bg-error-light: var(--t3-error-surface);
+  --floating-surface: var(--t3-popover);
+  --floating-shadow: var(--t3-shadow-popover);
+
+  --text-primary: var(--t3-foreground);
+  --text-secondary: var(--t3-muted-foreground);
+  --text-tertiary: var(--t3-subtle-foreground);
+  --text-quaternary: var(--t3-faint-foreground);
   --text-muted: var(--text-tertiary);
 
-  --border-color: #1f1f1f; // hairline
+  --border-color: var(--t3-border);
   --border-secondary: var(--border-color);
-  --border-primary: #2a2a2a;
-  --border-hover: #3a3a3a;
+  --border-primary: var(--t3-input);
+  --border-hover: var(--t3-border-strong);
 
-  // Actions are white on black; the coral accent marks selection and Claude.
-  --primary-color: #ededed;
-  --primary-hover: #ffffff;
-  --primary-active: #d4d4d4;
-  --primary-contrast: #000000;
-  --accent-color: #e0896a;
-  --accent-soft: rgba(224, 137, 106, 0.12);
+  --primary-color: var(--t3-primary);
+  --primary-hover: var(--t3-primary-hover);
+  --primary-active: var(--t3-primary);
+  --primary-contrast: var(--t3-primary-foreground);
+  // Selection marks (active tab, selected row) use the primary blue; coral stays with Claude's data.
+  --accent-color: var(--t3-primary);
+  --accent-soft: rgba(52, 107, 241, 0.14);
 
-  --success-color: #3fb27f;
-  --quota-medium-color: #e2b341;
-  --warning-color: #e5484d;
-  --error-color: #e5484d;
+  --success-color: var(--t3-success);
+  --quota-medium-color: var(--t3-warning);
+  --warning-color: var(--t3-error);
+  --error-color: var(--t3-error);
   --danger-color: var(--error-color);
-  --info-color: var(--text-secondary);
+  --info-color: var(--t3-info-foreground);
 
-  --warning-bg: rgba(229, 72, 77, 0.1);
-  --warning-border: rgba(229, 72, 77, 0.35);
-  --warning-text: #f2a3a5;
+  --warning-bg: var(--t3-error-surface);
+  --warning-border: rgba(240, 77, 77, 0.32);
+  --warning-text: var(--t3-error-foreground);
 
-  --success-badge-bg: rgba(63, 178, 127, 0.1);
-  --success-badge-text: #7fd3ad;
-  --success-badge-border: rgba(63, 178, 127, 0.35);
+  --success-badge-bg: var(--t3-success-surface);
+  --success-badge-text: var(--t3-success-foreground);
+  --success-badge-border: transparent;
 
-  --failure-badge-bg: rgba(229, 72, 77, 0.1);
-  --failure-badge-text: #f2a3a5;
-  --failure-badge-border: rgba(229, 72, 77, 0.35);
+  --failure-badge-bg: var(--t3-error-surface);
+  --failure-badge-text: var(--t3-error-foreground);
+  --failure-badge-border: transparent;
 
-  --count-badge-bg: #1a1a1a;
-  --count-badge-text: var(--text-secondary);
+  --count-badge-bg: var(--t3-secondary);
+  --count-badge-text: var(--t3-muted-foreground);
 
   --shadow: none;
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --shadow-lg: var(--t3-shadow-popover);
 
-  --radius-md: 6px;
+  --radius-md: 8px;
 
-  --primary-8: rgba(237, 237, 237, 0.06);
-  --primary-10: rgba(237, 237, 237, 0.08);
-  --primary-30: rgba(237, 237, 237, 0.24);
-  --amber-color: #e2b341;
-  --amber-text: #f0cf7a;
-  --amber-10: color-mix(in srgb, var(--amber-color) 12%, transparent);
-  --amber-30: color-mix(in srgb, var(--amber-color) 34%, transparent);
-  --destructive-color: var(--error-color);
-  --destructive-10: color-mix(in srgb, var(--destructive-color) 12%, transparent);
-  --destructive-30: color-mix(in srgb, var(--destructive-color) 34%, transparent);
-  --muted-bg: var(--bg-tertiary);
-  --muted-foreground: var(--text-secondary);
-  --accent-bg: var(--bg-tertiary);
+  --primary-8: rgba(52, 107, 241, 0.08);
+  --primary-10: rgba(52, 107, 241, 0.1);
+  --primary-30: rgba(52, 107, 241, 0.3);
+  --amber-color: var(--t3-warning);
+  --amber-text: var(--t3-warning-foreground);
+  --amber-10: var(--t3-warning-surface);
+  --amber-30: rgba(245, 158, 11, 0.32);
+  --destructive-color: var(--t3-error);
+  --destructive-10: var(--t3-error-surface);
+  --destructive-30: rgba(240, 77, 77, 0.32);
+  --muted-bg: var(--t3-muted);
+  --muted-foreground: var(--t3-muted-foreground);
+  --accent-bg: var(--t3-accent);
 
-  // Flat surfaces: no frosted glass in the dark build.
   --glass-backdrop-filter: none;
   --glass-filter: none;
-  --glass-bg: rgba(0, 0, 0, 0.92);
-  --glass-bg-secondary: rgba(0, 0, 0, 0.92);
+  --glass-bg: var(--t3-background);
+  --glass-bg-secondary: var(--t3-background);
   --glass-border: var(--border-color);
 
-  // Chart roles. Provider identity follows the entity, never its rank.
+  // Chart roles stay in slopalytics' language. Identity follows the entity, never its rank.
   --viz-claude: #e0896a;
   --viz-codex: #ededed;
   --viz-other: #8a8f98;
-  --viz-grid: #1a1a1a;
+  --viz-grid: rgba(255, 255, 255, 0.06);
   --viz-axis: #737373;
-  --viz-success: #3fb27f;
-  --viz-failure: #e5484d;
+  --viz-success: #10b981;
+  --viz-failure: #f04d4d;
 }
 
 @media (max-width: 768px),

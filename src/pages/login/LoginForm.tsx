@@ -1,7 +1,8 @@
 import { useId, useRef, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SelectionCheckbox } from '@/components/ui/SelectionCheckbox';
-import { IconAlertTriangle, IconCheck, IconEye, IconEyeOff } from '@/components/ui/icons';
+import { IconCheck, IconEye, IconEyeOff } from '@/components/ui/icons';
+import { ErrorNotice } from '@/components/ui/t3';
 import styles from './LoginForm.module.scss';
 
 export interface LoginFormProps {
@@ -14,7 +15,10 @@ export interface LoginFormProps {
   rememberPassword: boolean;
   loading: boolean;
   success?: boolean;
+  /** One plain sentence; empty when there is no error. */
   error: string;
+  /** The raw response behind the sentence, shown under "Details". */
+  errorDetails?: string;
   onApiBaseChange: (value: string) => void;
   onEditingBaseChange: (value: boolean) => void;
   onManagementKeyChange: (value: string) => void;
@@ -33,6 +37,7 @@ export function LoginForm({
   loading,
   success = false,
   error,
+  errorDetails,
   onApiBaseChange,
   onEditingBaseChange,
   onManagementKeyChange,
@@ -165,10 +170,13 @@ export function LoginForm({
           )}
         </button>
         {error && (
-          <p id={errorId} className={styles.error} role="alert" title={error}>
-            <IconAlertTriangle size={14} aria-hidden="true" />
-            <span>{error}</span>
-          </p>
+          <div id={errorId} className={styles.error}>
+            <ErrorNotice
+              error={error}
+              details={errorDetails ?? ''}
+              detailsLabel={t('common.details', { defaultValue: 'Details' })}
+            />
+          </div>
         )}
       </div>
     </form>

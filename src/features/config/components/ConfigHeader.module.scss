@@ -154,3 +154,15 @@
     animation: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.ghostAction {
+  @include t3-button(outline, sm);
+}
+/* ===== end T3 control language ===== */

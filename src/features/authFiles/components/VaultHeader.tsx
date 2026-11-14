@@ -24,7 +24,6 @@ export type VaultHeaderProps = {
 
 /**
  * 凭证库头部：eyebrow（▍游标前缀）+ 标题 + mono 遥测 meta 行 + 动作区。
- * meta 行同时承载 VaultPulse 的文字等价信息（谱条本身 aria-hidden）。
  */
 export function VaultHeader(props: VaultHeaderProps) {
   const {
@@ -53,27 +52,34 @@ export function VaultHeader(props: VaultHeaderProps) {
         <h1 className={styles.title} data-reveal>
           {t('auth_files.title')}
         </h1>
-        <p className={styles.meta} data-reveal>
-          <span className={styles.metaTotal}>
-            {t('auth_files.meta_total', { count: totalCount })}
-          </span>
-          <span className={styles.metaDot} aria-hidden="true">
-            ·
-          </span>
-          <span className={activeCount > 0 ? styles.metaActive : styles.metaMuted}>
-            {t('auth_files.meta_active', { count: activeCount })}
-          </span>
-          {problemCount > 0 && (
-            <>
-              <span className={styles.metaDot} aria-hidden="true">
-                ·
-              </span>
-              <span className={styles.metaProblem}>
-                {t('auth_files.meta_problem', { count: problemCount })}
-              </span>
-            </>
-          )}
-        </p>
+        {loading && totalCount === 0 ? (
+          // Counts of zero while the first read is in flight would be a false statement.
+          <p className={styles.meta} data-reveal>
+            <span className={styles.metaMuted}>{t('common.loading')}</span>
+          </p>
+        ) : (
+          <p className={styles.meta} data-reveal>
+            <span className={styles.metaTotal}>
+              {t('auth_files.meta_total', { count: totalCount })}
+            </span>
+            <span className={styles.metaDot} aria-hidden="true">
+              ·
+            </span>
+            <span className={activeCount > 0 ? styles.metaActive : styles.metaMuted}>
+              {t('auth_files.meta_active', { count: activeCount })}
+            </span>
+            {problemCount > 0 && (
+              <>
+                <span className={styles.metaDot} aria-hidden="true">
+                  ·
+                </span>
+                <span className={styles.metaProblem}>
+                  {t('auth_files.meta_problem', { count: problemCount })}
+                </span>
+              </>
+            )}
+          </p>
+        )}
       </div>
       <div className={styles.actions} data-reveal>
         {onSyncModelCatalog && (

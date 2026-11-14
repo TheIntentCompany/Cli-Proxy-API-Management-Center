@@ -4,9 +4,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: var(--t3-backdrop);
   z-index: 2000;
   display: flex;
   justify-content: flex-end;
@@ -23,11 +21,9 @@
 
 .content {
   position: relative;
-  background: var(--bg-primary);
-  border-left: 1px solid var(--border-color);
-  box-shadow:
-    -8px 0 32px rgba(0, 0, 0, 0.16),
-    var(--floating-shadow);
+  background: var(--t3-popover);
+  border-left: 1px solid var(--t3-border);
+  box-shadow: -24px 0 48px -24px rgba(0, 0, 0, 0.6);
   transform: translate3d(100%, 0, 0);
   will-change: transform;
   display: flex;
@@ -102,18 +98,17 @@
 }
 
 .eyebrow {
-  font-size: 11px;
+  font-size: $text-xs;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted-foreground);
+  color: var(--t3-subtle-foreground);
 }
 
 .title {
-  font-size: 18px;
-  font-weight: 550;
-  color: var(--text-primary);
+  font-size: $text-lg;
+  font-weight: 600;
+  color: var(--t3-foreground);
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .description {
@@ -141,32 +136,10 @@
 }
 
 .closeBtn {
+  @include t3-button(ghost, icon-sm);
   position: absolute;
   top: 14px;
   right: 14px;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition:
-    background-color $transition-fast,
-    color $transition-fast;
-
-  &:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
-  }
 }
 
 @media (max-width: 640px) {

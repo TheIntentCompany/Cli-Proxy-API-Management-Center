@@ -175,3 +175,13 @@
     transform: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.ghostAction {
+  @include t3-button(outline, sm);
+}
+
+.savePill {
+  @include t3-button(primary, sm);
+}
+/* ===== end T3 control language ===== */

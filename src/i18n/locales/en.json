@@ -54,11 +54,12 @@
     "model_alias_placeholder": "Model alias (optional)",
     "invalid_provider_index": "Invalid provider index.",
     "unsaved_changes_title": "Unsaved changes",
-    "unsaved_changes_message": "You have unsaved changes. Leaving now will discard them. Do you want to leave?"
+    "unsaved_changes_message": "You have unsaved changes. Leaving now will discard them. Do you want to leave?",
+    "details": "Details"
   },
   "title": {
     "login": "CLI Proxy API Management Center",
-    "abbr": "CPAMC"
+    "abbr": "CLIProxyAPI"
   },
   "splash": {
     "title": "CLI Proxy API",
@@ -84,17 +85,20 @@
     "error_invalid": "Connection failed, please check the server address, Management API, and management key",
     "error_network": "Network connection failed, please check your network or server address",
     "error_timeout": "Connection timed out, server not responding",
-    "error_unauthorized": "Authentication failed, management key is missing or invalid",
+    "error_unauthorized": "That management key wasn't accepted. Check it and try again.",
     "error_forbidden": "Access denied, remote management is disabled, the management key is not configured, or this IP is temporarily banned",
     "error_not_found": "v8 Management API not found. Check the server address and upgrade CLIProxyAPI to v8 or later; v0 is not supported.",
     "error_legacy_backend": "This backend accepts v0 Management API but does not provide v8. Upgrade CLIProxyAPI to v8 or later to use this management page.",
     "error_server": "Backend failed while handling the management request, check the server logs",
     "error_cors": "Cross-origin request blocked, please check server configuration",
-    "error_ssl": "SSL/TLS certificate verification failed"
+    "error_ssl": "SSL/TLS certificate verification failed",
+    "title": "Sign in to CLIProxyAPI",
+    "subtitle": "Enter the management key for this gateway."
   },
   "header": {
     "refresh_all": "Refresh All",
-    "logout": "Logout"
+    "logout": "Logout",
+    "breadcrumb": "Location"
   },
   "connection": {
     "status": "Connection Status:"
@@ -248,6 +252,20 @@
     "overage": "Credits after limit: {{state}}"
   },
   "codex_lb": {
+    "refreshed": "Refreshed {{name}} through codex-lb.",
+    "reset_done": "Spent one banked reset for {{name}}.",
+    "reset_confirm_title": "Spend a banked reset?",
+    "reset_confirm_message": "codex-lb will spend one banked reset for “{{name}}” and clear its usage windows. This cannot be undone.",
+    "reset_confirm_button": "Spend reset",
+    "refresh_hint": "Ask codex-lb to send one probe request and re-read usage",
+    "reset_hint": "Spend one banked reset through codex-lb",
+    "reset_count": "Reset ({{count}})",
+    "reset": "Reset",
+    "status_label": "Status",
+    "resets_unknown": "Not reported yet",
+    "resets_unusable": "{{count}} not usable on this plan",
+    "resets_dates_unavailable": "Expiry dates come from codex-lb once its actions relay is connected.",
+    "key_label": "codex-lb key",
     "monthly": "Monthly",
     "via": "Codex · via codex-lb",
     "section_title": "Reached through codex-lb",
@@ -1946,7 +1964,10 @@
     "invalid_json": "Enter valid JSON",
     "expected_array": "Enter a JSON array",
     "expected_object": "Enter a JSON object",
-    "invalid_enum": "Choose one of the declared enum values"
+    "invalid_enum": "Choose one of the declared enum values",
+    "no_match_title": "No matching plugins",
+    "no_match_desc": "Try another name or clear the search.",
+    "clear_search": "Clear search"
   },
   "plugin_store": {
     "title": "Plugin Store",
@@ -2244,7 +2265,7 @@
       "activeCount": "{{active}}/{{total}} active"
     },
     "providerNames": {
-       "aiCodeMirror": "AIcodemirror",
+      "aiCodeMirror": "AIcodemirror",
       "meta": "Muse (Meta)",
       "gemini": "Gemini",
       "interactions": "Interactions API",
@@ -2307,8 +2328,8 @@
       "urlMode": "{{provider}} URL",
       "urlHint": "All URLs use the same API conventions. Saving writes only the endpoint for the current grouped protocol.",
       "urlOptions": {
-         "aiCodeMirrorGlobal": "Global high-protection route",
-         "aiCodeMirrorDomestic": "Mainland China optimized route",
+        "aiCodeMirrorGlobal": "Global high-protection route",
+        "aiCodeMirrorDomestic": "Mainland China optimized route",
         "standard": "Standard URL",
         "direct": "Direct URL",
         "domestic": "China mainland route",
@@ -2317,8 +2338,8 @@
         "global": "Global"
       },
       "urlOptionDescriptions": {
-         "aiCodeMirrorGlobal": "A high-protection route for global access.",
-         "aiCodeMirrorDomestic": "A route optimized for mainland China networks.",
+        "aiCodeMirrorGlobal": "A high-protection route for global access.",
+        "aiCodeMirrorDomestic": "A route optimized for mainland China networks.",
         "domestic": "For users and workloads in mainland China; usually lower latency in mainland networks.",
         "overseas": "For overseas deployments, cross-border access, or workloads that need overseas models.",
         "mainlandChinaRecommended": "Recommended for users and workloads on mainland China networks.",

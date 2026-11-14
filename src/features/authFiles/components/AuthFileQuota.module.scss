@@ -373,3 +373,9 @@ button.quotaMessageAction {
     transition: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.quotaResetCreditButton {
+  @include t3-button(outline, xs);
+}
+/* ===== end T3 control language ===== */

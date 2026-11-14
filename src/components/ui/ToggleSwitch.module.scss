@@ -1,70 +1,87 @@
+@use '../../styles/mixins' as *;
+
+/* T3 Code's switch (MIT, see THIRD_PARTY_NOTICES.md): 30x18 track, 16px thumb.
+ * On is the primary blue with a light thumb; off is a dim track with a grey thumb,
+ * so the two states differ in colour, position and contrast, not position alone. */
+
 .root {
-  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: $spacing-sm;
+  gap: 8px;
   cursor: pointer;
+  user-select: none;
+  min-width: 0;
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 
 .labelLeft {
-  .label {
-    order: -1;
+  flex-direction: row-reverse;
+}
+
+.track {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  width: 30px;
+  height: 18px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--t3-input);
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--t3-muted-foreground);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition:
+    translate 150ms ease,
+    background-color 150ms ease;
+}
+
+.root input:checked + .track {
+  background: var(--t3-primary);
+
+  .thumb {
+    translate: 12px 0;
+    background: #ffffff;
   }
+}
+
+.root input:focus-visible + .track {
+  box-shadow:
+    0 0 0 1px var(--t3-background),
+    0 0 0 3px var(--t3-ring);
+}
+
+.root:hover input:not(:disabled):not(:checked) + .track {
+  background: color-mix(in srgb, var(--t3-input) 70%, var(--t3-muted-foreground));
+}
+
+.label {
+  min-width: 0;
+  color: var(--t3-muted-foreground);
+  font-size: $text-xs;
 }
 
 .disabled {
   cursor: not-allowed;
-}
-
-.root input {
-  width: 0;
-  height: 0;
-  opacity: 0;
-  position: absolute;
-}
-
-.track {
-  width: 44px;
-  height: 24px;
-  background: var(--border-color);
-  border-radius: $radius-full;
-  position: relative;
-  transition: background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
-}
-
-/* 隐藏的原生 checkbox 仍是焦点载体：键盘聚焦时把焦点环画到轨道上。 */
-.root input:focus-visible + .track {
-  outline: 2px solid var(--text-primary);
-  outline-offset: 2px;
-}
-
-.disabled .track {
   opacity: 0.5;
-}
-
-.thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 18px;
-  height: 18px;
-  background: #fff;
-  border-radius: $radius-full;
-  box-shadow: $shadow-sm;
-  transition: transform var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
-}
-
-.root input:checked + .track {
-  background: var(--primary-color);
-}
-
-.root input:checked + .track .thumb {
-  transform: translateX(20px);
-}
-
-.label {
-  color: var(--text-primary);
-  font-weight: 550;
 }
 
 @media (prefers-reduced-motion: reduce) {

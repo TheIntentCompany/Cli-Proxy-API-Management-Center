@@ -128,3 +128,17 @@
     transform: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.tabs {
+  flex-wrap: wrap;
+  overflow: visible;
+  row-gap: 4px;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.tab {
+  flex: 0 0 auto;
+}
+/* ===== end T3 control language ===== */

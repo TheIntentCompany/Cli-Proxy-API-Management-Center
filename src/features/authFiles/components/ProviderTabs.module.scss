@@ -137,3 +137,38 @@
     transform: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.tabs {
+  @include t3-segmented;
+  width: fit-content;
+  height: auto;
+  min-height: $control-h;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab {
+  @include t3-segmented-item(false);
+  font-size: $text-sm;
+  gap: 6px;
+  &::after {
+    display: none;
+  }
+}
+
+.tabActive {
+  @include t3-segmented-item(true);
+  font-size: $text-sm;
+  gap: 6px;
+}
+
+.tabCount {
+  @include t3-badge(neutral);
+  height: 16px;
+  min-width: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+}
+/* ===== end T3 control language ===== */

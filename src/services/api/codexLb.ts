@@ -11,6 +11,8 @@ import { apiCallApi } from './apiCall';
 import { isRecord } from '@/utils/helpers';
 
 export const CODEX_LB_STATUS_URL = 'http://127.0.0.1:8335/v1/accounts';
+/** The actions relay (deploy/codex-lb-actions): codex-lb's own Refresh and Reset. */
+export const CODEX_LB_ACTIONS_URL = 'http://127.0.0.1:8336/v1/accounts';
 
 export type CodexLbWindowKind = 'five_hour' | 'weekly' | 'monthly' | 'other';
 
@@ -37,6 +39,8 @@ export interface CodexLbAccount {
   /** When codex-lb expects a blocked account to recover. */
   blockedUntilMs: number | null;
   windows: CodexLbWindow[];
+  /** Banked resets codex-lb last saw as redeemable; null when it has no reading. */
+  resetCreditsAvailable: number | null;
 }
 
 export interface CodexLbKey {
@@ -103,6 +107,7 @@ const normalizeAccount = (input: unknown): CodexLbAccount | null => {
     status: text(input.status),
     statusReason: text(input.status_reason),
     blockedUntilMs: epochSecondsToMs(input.blocked_until),
+    resetCreditsAvailable: finite(input.reset_credits_available),
     // Stale windows describe an earlier plan; they are not current limits.
     windows: Array.isArray(input.windows)
       ? input.windows.map(normalizeWindow).filter((w): w is CodexLbWindow => w !== null && !w.stale)
@@ -159,4 +164,83 @@ export const codexLbApi = {
     if (result.statusCode !== 200) return null;
     return normalizeCodexLbStatus(result.body);
   },
+};
+
+/* ---------- actions relay ---------- */
+
+export interface CodexLbResetCredit {
+  title: string | null;
+  status: string | null;
+  expiresAtMs: number | null;
+}
+
+export interface CodexLbResets {
+  available: number;
+  unusable: number;
+  credits: CodexLbResetCredit[];
+}
+
+export class CodexLbActionError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly status: number
+  ) {
+    super(message);
+  }
+}
+
+const relay = async (method: 'GET' | 'POST', handle: string, action: string, body?: unknown) => {
+  let result;
+  try {
+    result = await apiCallApi.request(
+      {
+        method,
+        url: `${CODEX_LB_ACTIONS_URL}/${encodeURIComponent(handle)}/${action}`,
+        header: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        ...(body === undefined ? {} : { data: JSON.stringify(body) }),
+      },
+      // A refresh or reset waits on codex-lb, which in turn calls the provider.
+      { timeout: 60_000 }
+    );
+  } catch {
+    throw new CodexLbActionError(
+      'The codex-lb actions relay is not answering on the gateway.',
+      'relay_unreachable',
+      0
+    );
+  }
+  if (result.statusCode === 200 && isRecord(result.body)) return result.body;
+  const error = isRecord(result.body) && isRecord(result.body.error) ? result.body.error : null;
+  if (result.statusCode === 0 || (result.statusCode >= 500 && !error)) {
+    throw new CodexLbActionError(
+      'The codex-lb actions relay is not answering on the gateway.',
+      'relay_unreachable',
+      result.statusCode
+    );
+  }
+  throw new CodexLbActionError(
+    text(error?.message) || 'codex-lb refused the action.',
+    text(error?.code) || `http_${result.statusCode}`,
+    result.statusCode
+  );
+};
+
+export const codexLbActionsApi = {
+  resets: async (handle: string): Promise<CodexLbResets> => {
+    const body = await relay('GET', handle, 'resets');
+    const credits = Array.isArray(body.credits) ? body.credits : [];
+    return {
+      available: finite(body.available) ?? 0,
+      unusable: finite(body.unusable) ?? 0,
+      credits: credits.filter(isRecord).map((credit) => ({
+        title: text(credit.title),
+        status: text(credit.status),
+        expiresAtMs: isoToMs(credit.expires_at),
+      })),
+    };
+  },
+  refresh: (handle: string) => relay('POST', handle, 'refresh', {}),
+  reset: (handle: string, redeemRequestId: string) =>
+    relay('POST', handle, 'reset', { redeem_request_id: redeemRequestId }),
 };

@@ -2,7 +2,7 @@
 @use '../../../styles/variables' as *;
 
 .providerTable {
-  min-width: 960px;
+  min-width: 680px;
   table-layout: fixed;
 
   tbody tr:hover .actionsCell {
@@ -252,3 +252,18 @@
     color: var(--destructive-color);
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.iconBtn {
+  @include t3-button(ghost, icon-sm);
+}
+
+.iconBtnDanger {
+  @include t3-button(ghost, icon-sm);
+  color: var(--t3-error-foreground);
+}
+
+.statPill {
+  @include t3-badge(neutral);
+}
+/* ===== end T3 control language ===== */

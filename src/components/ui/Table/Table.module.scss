@@ -3,9 +3,9 @@
 
 .wrap {
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   overflow: hidden;
-  background: var(--bg-primary);
+  background: var(--t3-card);
 }
 
 .scroll {
@@ -21,14 +21,16 @@
 }
 
 .head {
-  background: var(--muted-bg);
+  background: transparent;
 
   th {
-    color: var(--muted-foreground);
+    height: 36px;
+    color: var(--t3-subtle-foreground);
     font-weight: 500;
-    font-size: 12px;
+    font-size: $text-xs;
     text-align: left;
-    padding: 10px 14px;
+    padding: 0 12px;
+    white-space: nowrap;
     border-bottom: 1px solid var(--border-color);
     vertical-align: middle;
   }
@@ -46,14 +48,15 @@
   transition: background-color $transition-fast;
 
   td {
-    padding: 12px 14px;
+    padding: 10px 12px;
+    font-size: $text-sm;
     border-bottom: 1px solid var(--border-color);
     vertical-align: top;
     line-height: 1.5;
   }
 
   &:hover td {
-    background: color-mix(in srgb, var(--accent-bg) 50%, transparent);
+    background: var(--t3-muted);
   }
 
   &.selected td {

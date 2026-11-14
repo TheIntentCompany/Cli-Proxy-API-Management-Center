@@ -1,3 +1,4 @@
+@use '../../../styles/mixins' as *;
 /* 凭证详情/编辑抽屉内容区 */
 
 .editor {
@@ -103,3 +104,20 @@
     border-radius: 2px;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.label {
+  font-family: inherit;
+  font-size: $text-sm;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--t3-foreground);
+}
+
+.textarea {
+  border-radius: 8px;
+  border-color: var(--t3-input);
+  font-size: $text-xs;
+}
+/* ===== end T3 control language ===== */

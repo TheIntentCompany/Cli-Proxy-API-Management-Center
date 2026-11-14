@@ -261,3 +261,25 @@
     animation: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.card {
+  border-color: var(--t3-border);
+  background: var(--t3-secondary);
+  border-radius: 10px;
+}
+
+.share {
+  color: var(--t3-foreground);
+  font-weight: 500;
+}
+
+.serving {
+  border-color: var(--t3-border-strong);
+  box-shadow: none;
+}
+
+.menuButton {
+  @include t3-button(ghost, icon-sm);
+}
+/* ===== end T3 control language ===== */

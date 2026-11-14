@@ -1,3 +1,4 @@
+@use '../../../styles/mixins' as *;
 .section {
   border-block: 1px solid var(--border-color);
   color: var(--warning-text);
@@ -142,3 +143,32 @@
     background: var(--bg-secondary);
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.section {
+  border-block: 0;
+  border-radius: 8px;
+  background: var(--t3-warning-surface);
+  color: var(--t3-warning-foreground);
+  font-size: $text-xs;
+  padding: 0 10px;
+}
+
+.summary {
+  min-height: 32px;
+  padding-block: 6px;
+}
+
+.scope {
+  font-weight: 500;
+}
+
+.next {
+  color: var(--t3-muted-foreground);
+  font-size: $text-xs;
+}
+
+.row {
+  border-top-color: rgba(245, 158, 11, 0.16);
+}
+/* ===== end T3 control language ===== */

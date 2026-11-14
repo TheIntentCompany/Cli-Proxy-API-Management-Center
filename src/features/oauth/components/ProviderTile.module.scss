@@ -212,3 +212,16 @@
     animation: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.tile {
+  background: var(--t3-card);
+  border-color: var(--t3-border);
+  border-radius: 12px;
+}
+
+.trail {
+  border-radius: 8px;
+  border-color: var(--t3-input);
+}
+/* ===== end T3 control language ===== */

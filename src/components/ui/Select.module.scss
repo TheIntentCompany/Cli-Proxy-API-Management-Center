@@ -1,9 +1,13 @@
 @use '../../styles/mixins' as *;
 
+/* T3 Code's select (MIT): the trigger is an outline control; the list is a popover with
+ * 28px rows, an accent hover and a check-free selected row in the foreground colour. */
+
 .wrap {
   position: relative;
   display: inline-flex;
   align-items: center;
+  min-width: 0;
 }
 
 .wrapFullWidth {
@@ -11,66 +15,48 @@
 }
 
 .trigger {
-  display: inline-flex;
-  align-items: center;
+  @include t3-button(outline, md);
   justify-content: space-between;
   gap: 8px;
   width: 100%;
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--border-color);
-  border-radius: $radius-md;
-  background-color: var(--bg-primary);
-  box-shadow: var(--shadow);
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  appearance: none;
+  min-width: 0;
+  padding: 0 8px 0 10px;
+  font-weight: 450;
   text-align: left;
-  box-sizing: border-box;
+  appearance: none;
 
-  &:hover {
-    border-color: var(--border-hover);
-  }
-
-  &:focus {
-    outline: none;
-    box-shadow:
-      var(--shadow),
-      0 0 0 3px rgba($primary-color, 0.18);
+  &:active:not(:disabled) {
+    scale: 1;
   }
 
   &[aria-expanded='true'] {
-    border-color: var(--primary-color);
-    box-shadow:
-      var(--shadow),
-      0 0 0 3px rgba($primary-color, 0.18);
+    border-color: var(--t3-ring);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--t3-ring) 24%, transparent);
   }
 }
 
 .triggerSm {
-  height: 28px;
-  padding: 0 10px;
-  font-size: 12px;
-  box-shadow: none;
+  height: $control-h-sm;
+  padding: 0 6px 0 9px;
+  font-size: $text-xs;
 }
 
 .triggerText {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .placeholder {
-  color: var(--text-tertiary);
+  color: var(--t3-subtle-foreground);
 }
 
 .triggerIcon {
   display: inline-flex;
-  color: var(--text-secondary);
+  color: var(--t3-subtle-foreground);
   flex-shrink: 0;
-  transition: transform 0.2s ease;
+  transition: transform 0.15s ease;
 
   [aria-expanded='true'] > & {
     transform: rotate(180deg);
@@ -79,46 +65,48 @@
 
 .dropdown {
   position: fixed;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: $radius-lg;
-  padding: 6px;
-  box-shadow: var(--shadow-lg);
+  z-index: 3000;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 240px;
+  gap: 1px;
+  max-height: 260px;
+  padding: 4px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  border: 1px solid var(--t3-border);
+  border-radius: 10px;
+  background: var(--t3-popover);
+  box-shadow: var(--t3-shadow-popover);
 }
 
 .option {
-  padding: 8px 12px;
-  border-radius: $radius-md;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-primary);
-  cursor: pointer;
-  text-align: left;
-  font-size: 13px;
-  font-weight: 500;
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease;
   flex-shrink: 0;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--t3-muted-foreground);
+  font: inherit;
+  font-size: $text-sm;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   &:hover {
-    background: var(--bg-secondary);
+    background: var(--t3-accent);
+    color: var(--t3-foreground);
   }
 }
 
 .optionActive {
-  border-color: rgba($primary-color, 0.5);
-  background: rgba($primary-color, 0.1);
-  font-weight: 550;
+  color: var(--t3-foreground);
+  font-weight: 500;
 }
 
 .optionHighlighted {
-  background: var(--bg-secondary);
+  background: var(--t3-accent);
+  color: var(--t3-foreground);
 }

@@ -1,4 +1,5 @@
 @use './variables.scss' as *;
+@use './mixins.scss' as *;
 
 :root {
   --header-height: 80px;
@@ -1080,4 +1081,295 @@
 
 .sidebar .nav-item.nav-drawer-toggle.active::before {
   display: none;
+}
+
+// ---------------------------------------------------------------------------
+// App chrome after T3 Code (MIT): a quiet sidebar on the raised surface, and a
+// 52px top bar with a breadcrumb on the left and icon actions on the right.
+// ---------------------------------------------------------------------------
+:root {
+  --header-height: 52px;
+  --sidebar-panel-width: 232px;
+  --page-gutter: clamp(20px, 2.4vw, 32px);
+}
+
+.top-gradient-blur {
+  display: none;
+}
+
+.main-header {
+  left: var(--sidebar-active-width);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--header-height);
+  padding: 0 12px 0 48px;
+  background: var(--t3-background);
+  border-bottom: 1px solid var(--t3-border);
+  pointer-events: auto;
+  transition: left $transition-normal;
+
+  .sidebar-toggle-floating {
+    @include t3-button(ghost, icon-sm);
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    transform: none;
+    color: var(--t3-subtle-foreground);
+
+    &:hover {
+      transform: none;
+    }
+
+    &:active {
+      transform: none;
+    }
+  }
+
+  .header-actions {
+    position: static;
+    margin-left: auto;
+    gap: 2px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .mobile-sidebar-actions .btn,
+  .header-actions .btn {
+    @include t3-button(ghost, icon-sm);
+    color: var(--t3-subtle-foreground);
+
+    &:hover {
+      color: var(--t3-foreground);
+      background: var(--t3-accent);
+    }
+  }
+
+  .language-menu-popover,
+  .theme-menu-popover {
+    top: calc(100% + 6px);
+    border: 1px solid var(--t3-border);
+    border-radius: 10px;
+    background: var(--t3-popover);
+    box-shadow: var(--t3-shadow-popover);
+  }
+
+  .language-menu-option {
+    min-height: 28px;
+    border-radius: 6px;
+    font-size: $text-sm;
+    color: var(--t3-muted-foreground);
+
+    &:hover,
+    &.active {
+      background: var(--t3-accent);
+      color: var(--t3-foreground);
+    }
+  }
+
+  .theme-card {
+    border-radius: 8px;
+
+    &.active {
+      border-color: var(--t3-ring);
+    }
+  }
+}
+
+.header-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: $text-sm;
+  color: var(--t3-subtle-foreground);
+  white-space: nowrap;
+}
+
+.header-breadcrumb-root {
+  color: var(--t3-muted-foreground);
+}
+
+.header-breadcrumb-sep {
+  color: var(--t3-faint-foreground);
+}
+
+.header-breadcrumb-current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--t3-foreground);
+  font-weight: 500;
+}
+
+.main-content {
+  padding: calc(var(--header-height) + 24px) var(--page-gutter) 48px;
+
+  &.main-content-logs {
+    padding: calc(var(--header-height) + 24px) var(--page-gutter) 24px;
+  }
+}
+
+.sidebar {
+  padding: 10px 8px;
+  gap: 6px;
+  background: var(--t3-card);
+  border-right: 1px solid var(--t3-border);
+
+  .sidebar-header {
+    min-height: 32px;
+    padding: 0 4px 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--t3-border);
+  }
+
+  .sidebar-brand {
+    gap: 8px;
+    padding: 0 4px;
+  }
+
+  .sidebar-brand-mark {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--t3-border);
+    border-radius: 6px;
+    background: var(--t3-secondary);
+    color: var(--t3-foreground);
+    box-shadow: var(--t3-highlight);
+  }
+
+  .sidebar-brand-title {
+    font-size: $text-sm;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .nav-section {
+    gap: 6px;
+  }
+
+  .nav-group {
+    gap: 1px;
+  }
+
+  .nav-group-label {
+    padding: 8px 8px 4px;
+    font-size: $text-2xs;
+    font-weight: 500;
+    color: var(--t3-subtle-foreground);
+  }
+
+  .nav-item {
+    min-height: 30px;
+    padding: 0 8px;
+    gap: 8px;
+    border: 0;
+    border-radius: $control-radius;
+    color: var(--t3-muted-foreground);
+    font-size: $text-sm;
+    font-weight: 450;
+
+    .nav-icon {
+      width: 16px;
+      height: 16px;
+      color: var(--t3-subtle-foreground);
+
+      svg {
+        width: 15px;
+        height: 15px;
+      }
+    }
+
+    .nav-badge {
+      color: var(--t3-subtle-foreground);
+      font-size: $text-2xs;
+    }
+
+    &:hover {
+      background: var(--t3-accent);
+      color: var(--t3-foreground);
+    }
+
+    &.active {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--t3-foreground);
+      font-weight: 500;
+
+      &::before {
+        display: none;
+      }
+
+      .nav-icon {
+        color: var(--t3-foreground);
+      }
+    }
+
+    &.nav-sub-item {
+      min-height: 28px;
+      border-radius: 6px;
+      font-size: $text-xs;
+    }
+  }
+
+  .nav-sub-list {
+    margin-left: 15px;
+    padding-left: 8px;
+    border-left: 1px solid var(--t3-border);
+  }
+}
+
+[data-theme='white'] .sidebar .nav-item.active,
+:root:not([data-theme='dark']) .sidebar .nav-item.active {
+  background: var(--t3-accent);
+}
+
+.sidebar .nav-group + .nav-group {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--t3-border);
+}
+
+.nav-tooltip {
+  border-radius: 6px;
+  border: 1px solid var(--t3-border);
+  background: var(--t3-popover);
+  box-shadow: var(--t3-shadow-popover);
+  font-size: $text-xs;
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .main-header {
+    left: 0;
+    padding: 0 8px;
+
+    .sidebar-toggle-floating {
+      display: none;
+    }
+
+    .mobile-sidebar-actions,
+    .header-actions {
+      position: static;
+      max-width: none;
+      padding: 0;
+      border: 0;
+      background: none;
+      box-shadow: none;
+    }
+
+    .mobile-sidebar-actions {
+      order: -1;
+    }
+  }
+
+  .main-content,
+  .main-content.main-content-logs {
+    padding: calc(var(--header-height) + 16px) 16px 32px;
+  }
 }

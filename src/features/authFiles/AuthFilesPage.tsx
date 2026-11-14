@@ -20,7 +20,7 @@ import {
 } from '@/features/authFiles/constants';
 import { AuthFileCard } from '@/features/authFiles/components/AuthFileCard';
 import { CodexLbRow } from '@/features/quota/components/CodexLbRow';
-import { flattenCodexLbAccounts } from '@/services/api/codexLb';
+import { codexLbAccountName, flattenCodexLbAccounts } from '@/services/api/codexLb';
 import { useCodexLbStatus } from '@/hooks/useCodexLbStatus';
 import { AuthFileDetailsSheet } from '@/features/authFiles/components/AuthFileDetailsSheet';
 import { getAuthFileRefreshKey } from '@/features/authFiles/manualRefresh';
@@ -32,7 +32,6 @@ import { OAuthExcludedCard } from '@/features/authFiles/components/OAuthExcluded
 import { OAuthModelAliasCard } from '@/features/authFiles/components/OAuthModelAliasCard';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { VaultHeader } from '@/features/authFiles/components/VaultHeader';
-import { VaultPulse } from '@/features/authFiles/components/VaultPulse';
 import { invalidateAuthFileDerivedCaches } from '@/features/authFiles/cacheInvalidation';
 import {
   buildWildcardSearch,
@@ -60,7 +59,7 @@ import styles from './AuthFilesPage.module.scss';
 
 const DEFAULT_REGULAR_PAGE_SIZE = 9;
 const DEFAULT_COMPACT_PAGE_SIZE = 12;
-const SKELETON_CARD_COUNT = 6;
+const SKELETON_CARD_COUNT = 5;
 /** 首屏卡片级联入场总预算，与 useRevealGroup 同一 360ms 语汇。 */
 const CARD_ENTRANCE_BUDGET_MS = 360;
 
@@ -81,7 +80,7 @@ const normalizePersistedStatusFilterMode = (value: unknown): AuthFilesStatusFilt
 export function AuthFilesPage() {
   const { t } = useTranslation();
   // Codex accounts reached through codex-lb: listed read-only below the credentials.
-  const { status: codexLbStatus } = useCodexLbStatus();
+  const { status: codexLbStatus, refresh: refreshCodexLb } = useCodexLbStatus();
   const codexLbAccounts = useMemo(
     () => flattenCodexLbAccounts(codexLbStatus?.keys),
     [codexLbStatus]
@@ -463,6 +462,18 @@ export function AuthFilesPage() {
 
   const sorted = useMemo(() => sortAuthFiles(filtered, sortMode), [filtered, sortMode]);
 
+  // codex-lb accounts follow the same provider tab and search box as the files above.
+  const visibleCodexLbAccounts = useMemo(() => {
+    if (normalizedFilter !== 'all' && normalizedFilter !== 'codex') return [];
+    const query = normalizedSearch.toLowerCase();
+    if (!query) return codexLbAccounts;
+    return codexLbAccounts.filter(({ account, keyInfo }) =>
+      [codexLbAccountName(account), account.planType, keyInfo.name, 'codex', 'codex-lb']
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }, [codexLbAccounts, normalizedFilter, normalizedSearch]);
+
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const start = (currentPage - 1) * pageSize;
@@ -619,8 +630,6 @@ export function AuthFilesPage() {
         onChange={handleFileChange}
       />
 
-      <VaultPulse files={files} statusBarCache={statusBarCache} />
-
       <section className={styles.workbench} aria-label={t('auth_files.title_section')}>
         <ProviderTabs
           types={existingTypes}
@@ -674,9 +683,9 @@ export function AuthFilesPage() {
         )}
 
         {loading ? (
-          <div className={gridClasses} aria-hidden="true">
+          <div className={styles.skeletonList} aria-hidden="true">
             {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
-              <Skeleton key={index} height={206} rounded={14} />
+              <Skeleton key={index} height={96} rounded={8} />
             ))}
           </div>
         ) : isFirstRunEmpty ? (
@@ -768,15 +777,20 @@ export function AuthFilesPage() {
         )}
       </section>
 
-      {codexLbAccounts.length > 0 && (
+      {visibleCodexLbAccounts.length > 0 && (
         <section className={styles.upstreamSection} aria-labelledby={upstreamHeadingId}>
           <h2 className={styles.upstreamTitle} id={upstreamHeadingId}>
             {t('codex_lb.section_title')}
           </h2>
           <p className={styles.upstreamNote}>{t('codex_lb.section_note')}</p>
           <ul className={styles.upstreamList}>
-            {codexLbAccounts.map(({ account, keyInfo }) => (
-              <CodexLbRow key={account.id} account={account} keyInfo={keyInfo} />
+            {visibleCodexLbAccounts.map(({ account, keyInfo }) => (
+              <CodexLbRow
+                key={account.id}
+                account={account}
+                keyInfo={keyInfo}
+                onChanged={() => void refreshCodexLb(true)}
+              />
             ))}
           </ul>
         </section>

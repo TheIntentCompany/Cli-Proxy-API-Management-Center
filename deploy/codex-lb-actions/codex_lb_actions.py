@@ -149,10 +149,18 @@ def _listed_account_ids():
     _, accounts = CLIENT.call("GET", "/api/accounts")
     rows = accounts.get("accounts", []) if isinstance(accounts, dict) else accounts or []
     resolved = {}
+    ambiguous = set()
     for row in rows:
         account_id = row.get("accountId") or row.get("id")
-        if account_id and _handle(account_id) in handles:
-            resolved[_handle(account_id)] = account_id
+        if not account_id or _handle(account_id) not in handles:
+            continue
+        handle = _handle(account_id)
+        if resolved.get(handle, account_id) != account_id:
+            ambiguous.add(handle)
+        resolved[handle] = account_id
+    # Two accounts sharing a 64-bit handle could send an action to the unlisted one; refuse both.
+    for handle in ambiguous:
+        resolved.pop(handle, None)
     return resolved
 
 

@@ -54,7 +54,8 @@
     "model_alias_placeholder": "Bí danh model (tùy chọn)",
     "invalid_provider_index": "Chỉ mục provider không hợp lệ.",
     "unsaved_changes_title": "Thay đổi chưa lưu",
-    "unsaved_changes_message": "Bạn có thay đổi chưa lưu. Rời đi bây giờ sẽ mất các thay đổi đó. Bạn có muốn rời đi không?"
+    "unsaved_changes_message": "Bạn có thay đổi chưa lưu. Rời đi bây giờ sẽ mất các thay đổi đó. Bạn có muốn rời đi không?",
+    "details": "Chi tiết"
   },
   "title": {
     "login": "Trung tâm Quản lý CLI Proxy API",
@@ -90,11 +91,14 @@
     "error_server": "Backend gặp lỗi khi xử lý yêu cầu quản lý, hãy kiểm tra log máy chủ",
     "error_cors": "Yêu cầu cross-origin bị chặn, vui lòng kiểm tra cấu hình máy chủ",
     "error_ssl": "Xác minh chứng chỉ SSL/TLS thất bại",
-    "error_legacy_backend": "Backend này chấp nhận Management API v0 nhưng không cung cấp v8. Vui lòng nâng cấp CLIProxyAPI lên v8 hoặc mới hơn để sử dụng trang quản lý này."
+    "error_legacy_backend": "Backend này chấp nhận Management API v0 nhưng không cung cấp v8. Vui lòng nâng cấp CLIProxyAPI lên v8 hoặc mới hơn để sử dụng trang quản lý này.",
+    "title": "Đăng nhập CLIProxyAPI",
+    "subtitle": "Nhập khóa quản lý của cổng này."
   },
   "header": {
     "refresh_all": "Làm mới tất cả",
-    "logout": "Đăng xuất"
+    "logout": "Đăng xuất",
+    "breadcrumb": "Vị trí"
   },
   "connection": {
     "status": "Trạng thái kết nối:"
@@ -248,6 +252,20 @@
     "overage": "Dùng tín dụng sau giới hạn: {{state}}"
   },
   "codex_lb": {
+    "refreshed": "Đã làm mới {{name}} qua codex-lb.",
+    "reset_done": "Đã dùng một lượt đặt lại cho {{name}}.",
+    "reset_confirm_title": "Dùng một lượt đặt lại?",
+    "reset_confirm_message": "codex-lb sẽ dùng một lượt đặt lại cho “{{name}}” và xóa các khung mức dùng. Không thể hoàn tác.",
+    "reset_confirm_button": "Dùng lượt đặt lại",
+    "refresh_hint": "Để codex-lb gửi một yêu cầu thăm dò và đọc lại mức dùng",
+    "reset_hint": "Dùng một lượt đặt lại qua codex-lb",
+    "reset_count": "Đặt lại ({{count}})",
+    "reset": "Đặt lại",
+    "status_label": "Trạng thái",
+    "resets_unknown": "Chưa báo",
+    "resets_unusable": "{{count}} không dùng được với gói này",
+    "resets_dates_unavailable": "Ngày hết hạn sẽ hiện khi bộ chuyển tiếp thao tác codex-lb được kết nối.",
+    "key_label": "Khóa codex-lb",
     "monthly": "Hằng tháng",
     "via": "Codex · qua codex-lb",
     "section_title": "Kết nối qua codex-lb",
@@ -1902,7 +1920,10 @@
     "invalid_json": "Nhập JSON hợp lệ",
     "expected_array": "Nhập mảng JSON",
     "expected_object": "Nhập đối tượng JSON",
-    "invalid_enum": "Chọn một trong các giá trị enum đã khai báo"
+    "invalid_enum": "Chọn một trong các giá trị enum đã khai báo",
+    "no_match_title": "Không có plugin phù hợp",
+    "no_match_desc": "Thử tên khác hoặc xóa tìm kiếm.",
+    "clear_search": "Xóa tìm kiếm"
   },
   "plugin_store": {
     "title": "Cửa hàng Plugin",
@@ -2116,7 +2137,7 @@
       "activeCount": "{{active}}/{{total}} đang hoạt động"
     },
     "providerNames": {
-       "aiCodeMirror": "AIcodemirror",
+      "aiCodeMirror": "AIcodemirror",
       "gemini": "Gemini",
       "interactions": "Interactions API",
       "codex": "Codex",
@@ -2182,8 +2203,8 @@
       "urlMode": "URL {{provider}}",
       "urlHint": "Mọi URL dùng cùng quy ước API. Lưu chỉ ghi endpoint của giao thức được nhóm hiện tại.",
       "urlOptions": {
-         "aiCodeMirrorGlobal": "Tuyến toàn cầu được bảo vệ cao",
-         "aiCodeMirrorDomestic": "Tuyến tối ưu cho Trung Quốc đại lục",
+        "aiCodeMirrorGlobal": "Tuyến toàn cầu được bảo vệ cao",
+        "aiCodeMirrorDomestic": "Tuyến tối ưu cho Trung Quốc đại lục",
         "standard": "URL chuẩn",
         "direct": "URL trực tiếp",
         "domestic": "Tuyến Trung Quốc đại lục",
@@ -2192,8 +2213,8 @@
         "global": "Toàn cầu"
       },
       "urlOptionDescriptions": {
-         "aiCodeMirrorGlobal": "Tuyến có mức bảo vệ cao dành cho truy cập toàn cầu.",
-         "aiCodeMirrorDomestic": "Tuyến được tối ưu cho mạng tại Trung Quốc đại lục.",
+        "aiCodeMirrorGlobal": "Tuyến có mức bảo vệ cao dành cho truy cập toàn cầu.",
+        "aiCodeMirrorDomestic": "Tuyến được tối ưu cho mạng tại Trung Quốc đại lục.",
         "domestic": "Dành cho người dùng và khối lượng công việc tại Trung Quốc đại lục; thường có độ trễ thấp hơn trên mạng đại lục.",
         "overseas": "Dành cho triển khai nước ngoài, truy cập xuyên biên giới hoặc khối lượng công việc cần model nước ngoài.",
         "mainlandChinaRecommended": "Khuyến nghị cho người dùng và khối lượng công việc trên mạng Trung Quốc đại lục.",

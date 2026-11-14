@@ -27,9 +27,9 @@
 
 .title {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
@@ -47,53 +47,25 @@
 .tabs {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
+/* T3 segmented controls: metric, then range. */
 .tabGroup {
-  display: flex;
-  gap: 16px;
+  @include t3-segmented;
 }
 
 .tabDivider {
-  width: 1px;
-  height: 18px;
-  background: var(--border-primary);
+  display: none;
 }
 
 .tab {
-  position: relative;
-  padding: 4px 0 7px;
-  border: 0;
-  background: none;
-  color: var(--text-secondary);
-  font-size: 13.5px;
-  cursor: pointer;
-  transition: color var(--dur-hover) var(--ease-out-strong);
-
-  &:hover {
-    color: var(--text-primary);
-  }
-
-  &:focus-visible {
-    outline: 1px solid var(--border-hover);
-    outline-offset: 2px;
-  }
+  @include t3-segmented-item(false);
 }
 
 .tabActive {
-  color: var(--text-primary);
-
-  &::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 1px;
-    background: var(--accent-color);
-  }
+  @include t3-segmented-item(true);
 }
 
 /* Claude share · lead · Codex share */
@@ -266,24 +238,7 @@
 }
 
 .textButton {
-  border: 0;
-  background: none;
-  padding: 0;
-  color: var(--text-secondary);
-  font-size: 12.5px;
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: var(--border-hover);
-  text-underline-offset: 3px;
-
-  &:hover:not(:disabled) {
-    color: var(--text-primary);
-  }
-
-  &:disabled {
-    cursor: default;
-    opacity: 0.6;
-  }
+  @include t3-button(outline, xs);
 }
 
 .limitList,
@@ -418,18 +373,11 @@
 
 .links {
   display: flex;
-  gap: 18px;
+  flex-wrap: wrap;
+  gap: 6px;
 
   a {
-    color: var(--text-secondary);
-    font-size: 13px;
-    text-decoration: underline;
-    text-decoration-color: var(--border-hover);
-    text-underline-offset: 3px;
-
-    &:hover {
-      color: var(--text-primary);
-    }
+    @include t3-button(outline, sm);
   }
 }
 
@@ -472,32 +420,18 @@
 }
 
 .resetButton {
-  border: 0;
-  background: none;
-  color: var(--text-tertiary);
-  font-size: 15px;
-  cursor: pointer;
-
-  &:hover {
-    color: var(--text-primary);
-  }
+  @include t3-button(ghost, icon-sm);
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
 }
 
 .sideActions {
   display: flex;
-  gap: 12px;
+  gap: 2px;
 
   button {
-    border: 0;
-    background: none;
-    padding: 0;
-    color: var(--text-secondary);
-    font-size: 12.5px;
-    cursor: pointer;
-
-    &:hover {
-      color: var(--text-primary);
-    }
+    @include t3-button(ghost, xs);
   }
 }
 
@@ -516,11 +450,39 @@
   color: var(--text-primary);
   cursor: pointer;
 
+  /* Native checkbox drawn as T3's: 14px, 4px radius, primary when checked. */
   input {
+    appearance: none;
+    display: inline-grid;
+    place-content: center;
     width: 14px;
     height: 14px;
     margin: 0;
-    accent-color: var(--text-primary);
+    border: 1px solid var(--t3-input);
+    border-radius: 4px;
+    background: var(--t3-input-fill);
+    cursor: pointer;
+
+    &::after {
+      content: '';
+      width: 7px;
+      height: 4px;
+      margin-top: -2px;
+      border-left: 1.5px solid #fff;
+      border-bottom: 1.5px solid #fff;
+      transform: rotate(-45deg) scale(0);
+    }
+
+    &:checked {
+      background: var(--t3-primary);
+      border-color: var(--t3-primary);
+
+      &::after {
+        transform: rotate(-45deg) scale(1);
+      }
+    }
+
+    @include t3-focus-ring;
   }
 }
 

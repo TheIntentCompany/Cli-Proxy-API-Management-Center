@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Select } from '@/components/ui/Select';
-import { useAuthStore, useLanguageStore, useNotificationStore } from '@/stores';
+import { useAuthStore, useLanguageStore } from '@/stores';
 import {
   getLoginTransitionTimings,
   useLoginTransitionStore,
@@ -11,27 +11,31 @@ import { prefersReducedMotion } from '@/hooks/motion';
 import { detectApiBaseFromLocation, normalizeApiBase } from '@/utils/connection';
 import { LANGUAGE_LABEL_KEYS, LANGUAGE_ORDER } from '@/utils/constants';
 import { isSupportedLanguage } from '@/utils/language';
-import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
+import { IconSidebarRouting } from '@/components/ui/icons';
 import type { ApiError } from '@/types';
 import { LegacyBackendError } from '@/services/api/legacyBackendProbe';
-import { DotMatrixHero } from './login/DotMatrixHero';
 import { LoginForm } from './login/LoginForm';
 import { resolveLoginRedirect } from '@/router/loginRedirect';
 import styles from './LoginPage.module.scss';
 
 export type LoginPhase = 'idle' | 'connecting' | 'success' | 'exiting';
 
-/** 左上角品牌名：产品全称，所有语言下保持英文，不走 i18n */
-export const LOGIN_BRAND_NAME = 'CLI Proxy API Management Center';
+/** Product name in the top bar; the same English name in every language, matching the sidebar. */
+export const LOGIN_BRAND_NAME = 'CLIProxyAPI';
 
 /** 语言下拉层最小宽度：最长的语言名（繁體中文（台灣））单行显示 */
 const LANGUAGE_DROPDOWN_MIN_WIDTH = 180;
 
-/**
- * 将 API 错误转换为本地化的用户友好消息
- */
-function getLocalizedErrorMessage(error: unknown, t: (key: string) => string): string {
-  if (error instanceof LegacyBackendError) return t('login.error_legacy_backend');
+interface LoginError {
+  /** One plain sentence for the form. */
+  summary: string;
+  /** The status code and the backend's own words, shown behind "Details". */
+  details?: string;
+}
+
+/** Turns a failed login into a plain sentence, keeping the raw response for the details block. */
+function describeLoginError(error: unknown, t: (key: string) => string): LoginError {
+  if (error instanceof LegacyBackendError) return { summary: t('login.error_legacy_backend') };
   const apiError = error as Partial<ApiError>;
   const status = typeof apiError.status === 'number' ? apiError.status : undefined;
   const code = typeof apiError.code === 'string' ? apiError.code : undefined;
@@ -43,61 +47,33 @@ function getLocalizedErrorMessage(error: unknown, t: (key: string) => string): s
         : typeof error === 'string'
           ? error
           : '';
+  const detail = message.trim();
+  const genericAxiosMessage = status ? `Request failed with status code ${status}` : '';
+  const details =
+    [status ? `HTTP ${status}` : '', detail && detail !== genericAxiosMessage ? detail : '']
+      .filter(Boolean)
+      .join(': ') || undefined;
+  const lower = message.toLowerCase();
 
-  const withHttpStatus = (summary: string) => {
-    if (!status) {
-      return summary;
-    }
-
-    const genericAxiosMessage = `Request failed with status code ${status}`;
-    const detail = message.trim();
-    const backendDetail =
-      detail && detail !== genericAxiosMessage
-        ? ` (${t('login.error_backend_detail')}: ${detail})`
-        : '';
-
-    return `HTTP ${status}: ${summary}${backendDetail}`;
-  };
-
-  // 根据 HTTP 状态码判断
-  if (status === 401) {
-    return withHttpStatus(t('login.error_unauthorized'));
-  }
-  if (status === 403) {
-    return withHttpStatus(t('login.error_forbidden'));
-  }
-  if (status === 404) {
-    return withHttpStatus(t('login.error_not_found'));
-  }
-  if (status && status >= 500) {
-    return withHttpStatus(t('login.error_server'));
-  }
-
-  // 根据 axios 错误码判断
-  if (code === 'ECONNABORTED' || message.toLowerCase().includes('timeout')) {
-    return t('login.error_timeout');
-  }
-  if (code === 'ERR_NETWORK' || message.toLowerCase().includes('network error')) {
-    return t('login.error_network');
-  }
-  if (code === 'ERR_CERT_AUTHORITY_INVALID' || message.toLowerCase().includes('certificate')) {
-    return t('login.error_ssl');
-  }
-
-  // 检查 CORS 错误
-  if (message.toLowerCase().includes('cors') || message.toLowerCase().includes('cross-origin')) {
-    return t('login.error_cors');
-  }
-
-  // 默认错误消息
-  return withHttpStatus(t('login.error_invalid'));
+  if (status === 401) return { summary: t('login.error_unauthorized'), details };
+  if (status === 403) return { summary: t('login.error_forbidden'), details };
+  if (status === 404) return { summary: t('login.error_not_found'), details };
+  if (status && status >= 500) return { summary: t('login.error_server'), details };
+  if (code === 'ECONNABORTED' || lower.includes('timeout'))
+    return { summary: t('login.error_timeout'), details };
+  if (code === 'ERR_NETWORK' || lower.includes('network error'))
+    return { summary: t('login.error_network'), details };
+  if (code === 'ERR_CERT_AUTHORITY_INVALID' || lower.includes('certificate'))
+    return { summary: t('login.error_ssl'), details };
+  if (lower.includes('cors') || lower.includes('cross-origin'))
+    return { summary: t('login.error_cors'), details };
+  return { summary: t('login.error_invalid'), details };
 }
 
 export function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { showNotification } = useNotificationStore();
   const language = useLanguageStore((state) => state.language);
   const setLanguage = useLanguageStore((state) => state.setLanguage);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -122,7 +98,7 @@ export function LoginPage() {
     useAuthStore.getState().hasRestorableSession()
   );
   const [autoLoginSuccess, setAutoLoginSuccess] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<LoginError | null>(null);
 
   const startReveal = useLoginTransitionStore((state) => state.startReveal);
   const exitTimersRef = useRef<number[]>([]);
@@ -202,14 +178,14 @@ export function LoginPage() {
   const handleSubmit = useCallback(async () => {
     if (phase !== 'idle') return;
     if (!managementKey.trim()) {
-      setError(t('login.error_required'));
+      setError({ summary: t('login.error_required') });
       return;
     }
 
     const baseToUse = apiBase ? normalizeApiBase(apiBase) : detectedBase;
     // 先进入 connecting：登录成功瞬间 isAuthenticated 变真时不会被立即重定向打断
     setPhase('connecting');
-    setError('');
+    setError(null);
     try {
       await login({
         apiBase: baseToUse,
@@ -217,10 +193,9 @@ export function LoginPage() {
         rememberPassword,
       });
     } catch (err: unknown) {
-      const message = getLocalizedErrorMessage(err, t);
+      // The form shows the error inline and announces it; a toast would say it twice.
       setPhase('idle');
-      setError(message);
-      showNotification(`${t('notification.login_failed')}: ${message}`, 'error');
+      setError(describeLoginError(err, t));
       return;
     }
     setPhase('success');
@@ -234,7 +209,6 @@ export function LoginPage() {
     phase,
     redirectTarget,
     rememberPassword,
-    showNotification,
     t,
   ]);
 
@@ -246,16 +220,14 @@ export function LoginPage() {
 
   return (
     <div className={styles.container} data-phase={phase === 'exiting' ? 'exiting' : undefined}>
-      <div className={styles.brandPanel}>
-        <DotMatrixHero />
-      </div>
-
       <div className={styles.formPanel}>
         {/* 自动登录启动页自带大徽标与品牌名，此时不再渲染顶栏，避免重复 */}
         {!showSplash && (
           <header className={styles.topBar}>
             <div className={styles.brandMark}>
-              <img src={INLINE_LOGO_JPEG} alt="" className={styles.brandLogo} />
+              <span className={styles.brandLogo} aria-hidden="true">
+                <IconSidebarRouting size={14} />
+              </span>
               <span className={styles.brandName} title={LOGIN_BRAND_NAME}>
                 {LOGIN_BRAND_NAME}
               </span>
@@ -277,7 +249,9 @@ export function LoginPage() {
         <main className={styles.main}>
           {showSplash ? (
             <div className={styles.splash} role="status" aria-live="polite">
-              <img src={INLINE_LOGO_JPEG} alt="" className={styles.splashLogo} />
+              <span className={styles.splashLogo} aria-hidden="true">
+                <IconSidebarRouting size={22} />
+              </span>
               <div className={styles.splashText}>
                 <h1 className={styles.splashTitle}>{t('splash.title')}</h1>
                 <p className={styles.splashSubtitle}>{t('splash.subtitle')}</p>
@@ -288,7 +262,10 @@ export function LoginPage() {
             </div>
           ) : (
             <div className={styles.column}>
-              <h1 className={styles.title}>{t('splash.subtitle')}</h1>
+              <div className={styles.heading}>
+                <h1 className={styles.title}>{t('login.title')}</h1>
+                <p className={styles.subtitle}>{t('login.subtitle')}</p>
+              </div>
               <LoginForm
                 apiBase={apiBase}
                 detectedBase={detectedBase}
@@ -298,7 +275,8 @@ export function LoginPage() {
                 rememberPassword={rememberPassword}
                 loading={loading}
                 success={phase === 'success' || phase === 'exiting'}
-                error={error}
+                error={error?.summary ?? ''}
+                errorDetails={error?.details}
                 onApiBaseChange={setApiBase}
                 onEditingBaseChange={setShowCustomBase}
                 onManagementKeyChange={setManagementKey}

@@ -54,7 +54,8 @@
     "model_alias_placeholder": "Псевдоним модели (необязательно)",
     "invalid_provider_index": "Неверный индекс провайдера.",
     "unsaved_changes_title": "Несохранённые изменения",
-    "unsaved_changes_message": "У вас есть несохранённые изменения. Если вы уйдёте, они будут потеряны. Выйти?"
+    "unsaved_changes_message": "У вас есть несохранённые изменения. Если вы уйдёте, они будут потеряны. Выйти?",
+    "details": "Подробности"
   },
   "title": {
     "login": "Центр управления CLI Proxy API",
@@ -90,11 +91,14 @@
     "error_legacy_backend": "Этот сервер поддерживает Management API v0, но не v8. Обновите CLIProxyAPI до v8 или новее, чтобы использовать эту страницу управления.",
     "error_server": "Backend не смог обработать запрос управления, проверьте журналы сервера",
     "error_cors": "Блокировка CORS, проверьте конфигурацию сервера",
-    "error_ssl": "Ошибка проверки SSL/TLS сертификата"
+    "error_ssl": "Ошибка проверки SSL/TLS сертификата",
+    "title": "Вход в CLIProxyAPI",
+    "subtitle": "Введите ключ управления этого шлюза."
   },
   "header": {
     "refresh_all": "Обновить всё",
-    "logout": "Выйти"
+    "logout": "Выйти",
+    "breadcrumb": "Расположение"
   },
   "connection": {
     "status": "Статус подключения:"
@@ -247,6 +251,20 @@
     "overage": "Кредиты после лимита: {{state}}"
   },
   "codex_lb": {
+    "refreshed": "{{name}} обновлён через codex-lb.",
+    "reset_done": "Для {{name}} использован один сброс.",
+    "reset_confirm_title": "Использовать сохранённый сброс?",
+    "reset_confirm_message": "codex-lb использует один сброс для «{{name}}» и обнулит окна использования. Это нельзя отменить.",
+    "reset_confirm_button": "Использовать сброс",
+    "refresh_hint": "codex-lb отправит пробный запрос и перечитает использование",
+    "reset_hint": "Использовать один сброс через codex-lb",
+    "reset_count": "Сброс ({{count}})",
+    "reset": "Сброс",
+    "status_label": "Статус",
+    "resets_unknown": "Нет данных",
+    "resets_unusable": "{{count}} недоступны на этом тарифе",
+    "resets_dates_unavailable": "Сроки появятся, когда подключён ретранслятор действий codex-lb.",
+    "key_label": "Ключ codex-lb",
     "monthly": "Месяц",
     "via": "Codex · через codex-lb",
     "section_title": "Подключены через codex-lb",
@@ -1949,7 +1967,10 @@
     "invalid_json": "Введите корректный JSON",
     "expected_array": "Введите JSON-массив",
     "expected_object": "Введите JSON-объект",
-    "invalid_enum": "Выберите одно из объявленных значений enum"
+    "invalid_enum": "Выберите одно из объявленных значений enum",
+    "no_match_title": "Подходящих плагинов нет",
+    "no_match_desc": "Попробуйте другое имя или очистите поиск.",
+    "clear_search": "Очистить поиск"
   },
   "plugin_store": {
     "title": "Магазин плагинов",
@@ -2238,7 +2259,7 @@
       "activeCount": "{{active}}/{{total}} активных"
     },
     "providerNames": {
-       "aiCodeMirror": "AIcodemirror",
+      "aiCodeMirror": "AIcodemirror",
       "meta": "Muse (Meta)",
       "gemini": "Gemini",
       "interactions": "Interactions API",
@@ -2301,8 +2322,8 @@
       "urlMode": "{{provider}} URL",
       "urlHint": "Все URL используют одинаковые правила API. При сохранении записывается только endpoint текущего группового протокола.",
       "urlOptions": {
-         "aiCodeMirrorGlobal": "Глобальный маршрут с усиленной защитой",
-         "aiCodeMirrorDomestic": "Оптимизированный маршрут для материкового Китая",
+        "aiCodeMirrorGlobal": "Глобальный маршрут с усиленной защитой",
+        "aiCodeMirrorDomestic": "Оптимизированный маршрут для материкового Китая",
         "standard": "Обычный URL",
         "direct": "Прямой URL",
         "domestic": "Маршрут для материкового Китая",
@@ -2311,8 +2332,8 @@
         "global": "Глобальный"
       },
       "urlOptionDescriptions": {
-         "aiCodeMirrorGlobal": "Маршрут с усиленной защитой для доступа по всему миру.",
-         "aiCodeMirrorDomestic": "Маршрут, оптимизированный для сетей материкового Китая.",
+        "aiCodeMirrorGlobal": "Маршрут с усиленной защитой для доступа по всему миру.",
+        "aiCodeMirrorDomestic": "Маршрут, оптимизированный для сетей материкового Китая.",
         "domestic": "Для пользователей и нагрузок в материковом Китае; обычно дает меньшую задержку в сетях материкового Китая.",
         "overseas": "Для зарубежных развертываний, трансграничного доступа или задач, которым нужны зарубежные модели.",
         "mainlandChinaRecommended": "Рекомендуется для пользователей и нагрузок в сетях материкового Китая.",

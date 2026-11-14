@@ -43,7 +43,8 @@ interface ProviderResourceTableProps {
   onToggleDisabled?: (resource: ProviderResource, disabled: boolean) => void;
 }
 
-const columnWidths = ['180px', '220px', '72px', '138px', '174px', '176px'];
+// Base URL takes the remaining width so the table fits the panel at common widths.
+const columnWidths = ['120px', 'auto', '60px', '116px', '128px', '150px'];
 
 const isSponsorResource = (resource: ProviderResource): boolean =>
   isMultiProtocolSponsorBrand(resource.brand);
@@ -196,7 +197,11 @@ export function ProviderResourceTable({
         </span>
       );
     }
-    return <span className={styles.baseUrl}>{r.baseUrl ?? t('providersPage.status.notSet')}</span>;
+    return (
+      <span className={styles.baseUrl} title={r.baseUrl ?? undefined}>
+        {r.baseUrl ?? t('providersPage.status.notSet')}
+      </span>
+    );
   };
 
   return (

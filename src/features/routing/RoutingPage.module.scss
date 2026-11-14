@@ -653,3 +653,31 @@ $label-x: $tier-pad + 1px + $index-size + 10px; // where tier names begin
     transition: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.tier {
+  border-color: var(--t3-border);
+  background: var(--t3-card);
+  border-radius: 12px;
+}
+
+.tierActive {
+  border-color: var(--t3-border-strong);
+  .tierIndex {
+    background: var(--t3-foreground);
+    color: var(--t3-background);
+  }
+}
+
+.policyTitle {
+  font-size: $text-base;
+  font-weight: 600;
+}
+/* ===== end T3 control language ===== */

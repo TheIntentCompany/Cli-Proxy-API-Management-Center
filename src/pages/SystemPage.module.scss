@@ -1,3 +1,4 @@
+@use '../styles/mixins' as *;
 .container {
   width: 100%;
 }
@@ -369,3 +370,57 @@
     letter-spacing: -0.006em;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.pageTitle {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.aboutLogo {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+}
+
+.aboutTitle {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.aboutCard {
+  border-color: var(--t3-border);
+  background: var(--t3-card);
+  border-radius: 12px;
+}
+
+.infoTile {
+  min-height: 0;
+  border-color: var(--t3-border);
+  background: var(--t3-secondary);
+  border-radius: 10px;
+}
+
+.tapTile {
+  &:hover {
+    border-color: var(--t3-border-strong);
+    box-shadow: none;
+  }
+}
+
+.tileValue {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.tileHeader {
+  min-height: 28px;
+}
+
+.tileAction {
+  @include t3-button(outline, sm);
+}
+/* ===== end T3 control language ===== */

@@ -54,7 +54,8 @@
     "model_alias_placeholder": "模型别名 (可选)",
     "invalid_provider_index": "无效的提供商索引。",
     "unsaved_changes_title": "未保存的更改",
-    "unsaved_changes_message": "你有未保存的更改，离开后将丢失这些更改。确定要离开吗？"
+    "unsaved_changes_message": "你有未保存的更改，离开后将丢失这些更改。确定要离开吗？",
+    "details": "详情"
   },
   "title": {
     "login": "CLI Proxy API Management Center",
@@ -90,11 +91,14 @@
     "error_legacy_backend": "当前后端可使用 v0 管理接口，但不支持 v8。请将 CLIProxyAPI 升级至 v8 或更高版本后再使用此管理页面。",
     "error_server": "后端处理管理接口时发生错误，请查看服务日志",
     "error_cors": "跨域请求被阻止，请检查服务器配置",
-    "error_ssl": "SSL/TLS 证书验证失败"
+    "error_ssl": "SSL/TLS 证书验证失败",
+    "title": "登录 CLIProxyAPI",
+    "subtitle": "输入此网关的管理密钥。"
   },
   "header": {
     "refresh_all": "刷新全部",
-    "logout": "登出"
+    "logout": "登出",
+    "breadcrumb": "位置"
   },
   "connection": {
     "status": "连接状态:"
@@ -248,6 +252,20 @@
     "overage": "超限后使用额度：{{state}}"
   },
   "codex_lb": {
+    "refreshed": "已通过 codex-lb 刷新 {{name}}。",
+    "reset_done": "已为 {{name}} 使用一次重置。",
+    "reset_confirm_title": "使用一次可用重置？",
+    "reset_confirm_message": "codex-lb 将为“{{name}}”使用一次重置并清空用量窗口，无法撤销。",
+    "reset_confirm_button": "使用重置",
+    "refresh_hint": "让 codex-lb 发送一次探测请求并重新读取用量",
+    "reset_hint": "通过 codex-lb 使用一次重置",
+    "reset_count": "重置（{{count}}）",
+    "reset": "重置",
+    "status_label": "状态",
+    "resets_unknown": "尚未上报",
+    "resets_unusable": "{{count}} 个在此套餐不可用",
+    "resets_dates_unavailable": "连接 codex-lb 操作中继后会显示到期时间。",
+    "key_label": "codex-lb 密钥",
     "monthly": "每月",
     "via": "Codex · 经由 codex-lb",
     "section_title": "经由 codex-lb 接入",
@@ -1945,7 +1963,10 @@
     "invalid_json": "请输入有效 JSON",
     "expected_array": "请输入 JSON 数组",
     "expected_object": "请输入 JSON 对象",
-    "invalid_enum": "请选择声明的枚举值"
+    "invalid_enum": "请选择声明的枚举值",
+    "no_match_title": "没有匹配的插件",
+    "no_match_desc": "换个名称试试，或清空搜索。",
+    "clear_search": "清空搜索"
   },
   "plugin_store": {
     "title": "插件商店",
@@ -2243,7 +2264,7 @@
       "activeCount": "{{active}}/{{total}} 活跃"
     },
     "providerNames": {
-       "aiCodeMirror": "AIcodemirror",
+      "aiCodeMirror": "AIcodemirror",
       "meta": "Muse (Meta)",
       "gemini": "Gemini",
       "interactions": "Interactions API",
@@ -2306,8 +2327,8 @@
       "urlMode": "{{provider}} URL",
       "urlHint": "不同 URL 的使用规范一致,保存时只会写入当前分组协议对应地址。",
       "urlOptions": {
-         "aiCodeMirrorGlobal": "全球高保线路",
-         "aiCodeMirrorDomestic": "国内优化线路",
+        "aiCodeMirrorGlobal": "全球高保线路",
+        "aiCodeMirrorDomestic": "国内优化线路",
         "standard": "普通 URL",
         "direct": "专线直连 URL",
         "domestic": "国内线路",
@@ -2316,8 +2337,8 @@
         "global": "全球"
       },
       "urlOptionDescriptions": {
-         "aiCodeMirrorGlobal": "适用于全球访问的高防护线路。",
-         "aiCodeMirrorDomestic": "针对中国大陆网络优化的线路。",
+        "aiCodeMirrorGlobal": "适用于全球访问的高防护线路。",
+        "aiCodeMirrorDomestic": "针对中国大陆网络优化的线路。",
         "domestic": "面向中国大陆用户和部署在中国大陆网络环境中的业务，通常可获得更低延迟。",
         "overseas": "面向海外部署、跨境访问或需要访问境外模型的业务。",
         "mainlandChinaRecommended": "推荐中国大陆用户和部署在中国大陆网络环境中的业务使用。",

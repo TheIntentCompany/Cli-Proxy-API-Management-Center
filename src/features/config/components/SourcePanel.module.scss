@@ -199,3 +199,9 @@
     transform: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.searchButton {
+  @include t3-button(ghost, icon-sm);
+}
+/* ===== end T3 control language ===== */

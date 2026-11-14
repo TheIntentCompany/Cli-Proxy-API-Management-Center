@@ -431,7 +431,8 @@ export function LogsPage() {
               .filter(Boolean)
               .join(' ')}
           >
-            {showFileLoggingRequired && (
+            {/* With no lines loaded, the empty state below already says this. */}
+            {showFileLoggingRequired && logBuffer.buffer.length > 0 && (
               <div className="status-badge warning">
                 {t(
                   cpaNeedsFileLogging
@@ -976,7 +977,7 @@ export function LogsPage() {
                 {loadingErrors ? (
                   <div className="hint">{t('common.loading')}</div>
                 ) : errorLogs.length === 0 ? (
-                  <div className="hint">{t('logs.error_logs_empty')}</div>
+                  <EmptyState title={t('logs.error_logs_empty')} />
                 ) : (
                   <div className="item-list">
                     {errorLogs.map((item) => (

@@ -83,8 +83,10 @@ describe('log workspace layout contract', () => {
     );
     expect(styles).toContain('--log-control-height: 40px');
     expect(styles).toContain('--log-control-height: 36px');
+    // The T3 pass sets the shared variable to T3's 32px control height.
+    expect(styles).toContain('--log-control-height: 32px');
     expect(styles).toContain('width: var(--log-control-height)');
-    expect(styles).not.toContain('height: 32px');
+    expect(styles).not.toMatch(/[^-]height: 32px/);
   });
 
   test('all supported locales describe both filtering and display settings', () => {

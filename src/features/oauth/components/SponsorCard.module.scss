@@ -540,3 +540,32 @@ $site-radius: 12px;
 .rim {
   display: none;
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.card {
+  background: var(--t3-card);
+  box-shadow: inset 0 0 0 1px var(--t3-border);
+  border-radius: 12px;
+}
+
+.site {
+  background: var(--t3-secondary);
+  border-color: var(--t3-border);
+  border-radius: 10px;
+}
+
+.signUp {
+  @include t3-button(outline, xs);
+  border-radius: 6px;
+}
+
+.trail {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--t3-input-fill);
+  border: 1px solid var(--t3-input);
+  color: var(--t3-foreground);
+  box-shadow: var(--t3-highlight);
+}
+/* ===== end T3 control language ===== */

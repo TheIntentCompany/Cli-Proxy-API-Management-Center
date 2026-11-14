@@ -1281,3 +1281,53 @@
   background: var(--failure-badge-bg);
   color: var(--failure-badge-text);
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.entryCardIconBtn {
+  @include t3-button(ghost, icon-sm);
+}
+
+.connectivityBtn {
+  @include t3-button(outline, sm);
+}
+
+.connectivityBtnGhost {
+  @include t3-button(ghost, sm);
+}
+
+.discoveryApplyBtn {
+  @include t3-button(primary, sm);
+}
+
+.passwordToggle {
+  @include t3-button(ghost, icon-sm);
+}
+
+.showMoreBtn {
+  @include t3-button(ghost, sm);
+}
+
+.removeBtn {
+  @include t3-button(ghost, icon-sm);
+}
+
+.addBtn {
+  @include t3-button(outline, sm);
+}
+
+.footerBtn {
+  @include t3-button(outline, md);
+}
+
+.footerBtnGhost {
+  @include t3-button(ghost, md);
+}
+
+.footerBtnOutline {
+  @include t3-button(outline, md);
+}
+
+.footerBtnPrimary {
+  @include t3-button(primary, md);
+}
+/* ===== end T3 control language ===== */

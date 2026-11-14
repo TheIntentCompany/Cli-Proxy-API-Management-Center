@@ -183,7 +183,7 @@ export function QuotaPage() {
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
   // Codex accounts reached through codex-lb are not credentials here, but they are
   // accounts this gateway serves, so they count under Codex and appear in its list.
-  const { status: codexLbStatus } = useCodexLbStatus();
+  const { status: codexLbStatus, refresh: refreshCodexLb } = useCodexLbStatus();
   const codexLbAccounts = useMemo(
     () => flattenCodexLbAccounts(codexLbStatus?.keys),
     [codexLbStatus]
@@ -335,6 +335,34 @@ export function QuotaPage() {
       void loadQuota(pageItems);
     }
   }, [disableControls, error, filesGeneration, loading, loadQuota, pageItems, sessionGeneration]);
+
+  // Claude and Codex rows read their limits once when the page opens, so plan, banked
+  // resets, extra usage and credits are on screen without a click. Accounts already read
+  // in this session (cached in the quota store) are not read again.
+  const autoReadSessionRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (disableControls || loading || batchLoading || error) return;
+    if (filesGeneration !== sessionGeneration) return;
+    if (autoReadSessionRef.current === sessionGeneration) return;
+    autoReadSessionRef.current = sessionGeneration;
+    const unread = entries.filter(
+      (entry) =>
+        (entry.type === 'claude' || entry.type === 'codex') &&
+        !entry.file.disabled &&
+        (getQuota(entry)?.status ?? 'idle') === 'idle'
+    );
+    if (unread.length > 0) void loadQuota(unread);
+  }, [
+    batchLoading,
+    disableControls,
+    entries,
+    error,
+    filesGeneration,
+    getQuota,
+    loadQuota,
+    loading,
+    sessionGeneration,
+  ]);
 
   useDevinQuotaAutoLoad(
     pageItems,
@@ -508,7 +536,12 @@ export function QuotaPage() {
                 );
               })}
               {visibleCodexLbAccounts.map(({ account, keyInfo }) => (
-                <CodexLbRow key={`codex-lb:${account.id}`} account={account} keyInfo={keyInfo} />
+                <CodexLbRow
+                  key={`codex-lb:${account.id}`}
+                  account={account}
+                  keyInfo={keyInfo}
+                  onChanged={() => void refreshCodexLb(true)}
+                />
               ))}
             </ul>
           </div>

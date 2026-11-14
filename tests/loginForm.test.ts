@@ -107,9 +107,9 @@ describe('login copy', () => {
 });
 
 describe('login brand mark', () => {
-  test('shows the full English product name in every language', async () => {
+  test('shows the same English product name as the sidebar in every language', async () => {
     const source = await Bun.file('src/pages/LoginPage.tsx').text();
-    expect(source).toContain("LOGIN_BRAND_NAME = 'CLI Proxy API Management Center'");
+    expect(source).toContain("LOGIN_BRAND_NAME = 'CLIProxyAPI'");
     expect(source).toMatch(/className=\{styles\.brandName\}[^>]*>\s*\{LOGIN_BRAND_NAME\}/);
   });
 });

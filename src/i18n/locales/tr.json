@@ -54,7 +54,8 @@
     "model_alias_placeholder": "Model Takma Adı (İsteğe Bağlı)",
     "invalid_provider_index": "Geçersiz Sağlayıcı Dizini.",
     "unsaved_changes_title": "Kaydedilmemiş Değişiklikler",
-    "unsaved_changes_message": "Kaydedilmemiş Değişiklikler Var. Şimdi Ayrılırsan Bunlar Silinir. Ayrılmak İstiyor Musun?"
+    "unsaved_changes_message": "Kaydedilmemiş Değişiklikler Var. Şimdi Ayrılırsan Bunlar Silinir. Ayrılmak İstiyor Musun?",
+    "details": "Ayrıntılar"
   },
   "title": {
     "login": "CLIProxyAPI Yönetim Merkezi",
@@ -90,11 +91,14 @@
     "error_legacy_backend": "Bu Arka Uç v0 Management API Kabul Ediyor ama v8 Sunmuyor. Bu Yönetim Sayfasını Kullanmak için CLIProxyAPI Sürümünü v8 veya Sonrasına Yükselt.",
     "error_server": "Arka Uç Yönetim İsteğini İşlerken Başarısız Oldu. Sunucu Günlüklerini Kontrol Et",
     "error_cors": "Çapraz Kökenli İstek Engellendi. Sunucu Yapılandırmasını Kontrol Et",
-    "error_ssl": "SSL/TLS Sertifika Doğrulaması Başarısız"
+    "error_ssl": "SSL/TLS Sertifika Doğrulaması Başarısız",
+    "title": "CLIProxyAPI'ye giriş yap",
+    "subtitle": "Bu ağ geçidinin yönetim anahtarını girin."
   },
   "header": {
     "refresh_all": "Tümünü Yenile",
-    "logout": "Çıkış"
+    "logout": "Çıkış",
+    "breadcrumb": "Konum"
   },
   "connection": {
     "status": "Bağlantı Durumu:"
@@ -248,6 +252,20 @@
     "overage": "Limitten sonra kredi kullanımı: {{state}}"
   },
   "codex_lb": {
+    "refreshed": "{{name}} codex-lb üzerinden yenilendi.",
+    "reset_done": "{{name}} için bir sıfırlama kullanıldı.",
+    "reset_confirm_title": "Biriken bir sıfırlama kullanılsın mı?",
+    "reset_confirm_message": "codex-lb “{{name}}” için bir sıfırlama kullanacak ve kullanım pencerelerini temizleyecek. Geri alınamaz.",
+    "reset_confirm_button": "Sıfırlamayı kullan",
+    "refresh_hint": "codex-lb bir yoklama isteği gönderip kullanımı yeniden okur",
+    "reset_hint": "codex-lb üzerinden bir sıfırlama kullan",
+    "reset_count": "Sıfırla ({{count}})",
+    "reset": "Sıfırla",
+    "status_label": "Durum",
+    "resets_unknown": "Henüz bildirilmedi",
+    "resets_unusable": "{{count}} bu planda kullanılamaz",
+    "resets_dates_unavailable": "Bitiş tarihleri codex-lb işlem aktarıcısı bağlanınca görünür.",
+    "key_label": "codex-lb anahtarı",
     "monthly": "Aylık",
     "via": "Codex · codex-lb üzerinden",
     "section_title": "codex-lb üzerinden bağlı",
@@ -1946,7 +1964,10 @@
     "invalid_json": "Geçerli JSON Gir",
     "expected_array": "Bir JSON Dizisi Gir",
     "expected_object": "Bir JSON Nesnesi Gir",
-    "invalid_enum": "Bildirilen Enum Değerlerinden Birini Seç"
+    "invalid_enum": "Bildirilen Enum Değerlerinden Birini Seç",
+    "no_match_title": "Eşleşen eklenti yok",
+    "no_match_desc": "Başka bir ad deneyin veya aramayı temizleyin.",
+    "clear_search": "Aramayı temizle"
   },
   "plugin_store": {
     "title": "Eklenti Mağazası",
@@ -2244,7 +2265,7 @@
       "activeCount": "{{active}} / {{total}} Aktif"
     },
     "providerNames": {
-       "aiCodeMirror": "AIcodemirror",
+      "aiCodeMirror": "AIcodemirror",
       "meta": "Muse (Meta)",
       "gemini": "Gemini",
       "interactions": "Interactions API",
@@ -2307,8 +2328,8 @@
       "urlMode": "{{provider}} URL'si",
       "urlHint": "Tüm URL'ler Aynı API Kurallarını Kullanır. Kayıt Yalnızca Geçerli Gruplanmış Protokolün Uç Noktasını Yazar.",
       "urlOptions": {
-         "aiCodeMirrorGlobal": "Yüksek Korumalı Küresel Rota",
-         "aiCodeMirrorDomestic": "Çin Ana Karası için Optimize Edilmiş Rota",
+        "aiCodeMirrorGlobal": "Yüksek Korumalı Küresel Rota",
+        "aiCodeMirrorDomestic": "Çin Ana Karası için Optimize Edilmiş Rota",
         "standard": "Standart URL",
         "direct": "Doğrudan URL",
         "domestic": "Çin Ana Karası Rotası",
@@ -2317,8 +2338,8 @@
         "global": "Küresel"
       },
       "urlOptionDescriptions": {
-         "aiCodeMirrorGlobal": "Küresel erişim için yüksek korumalı bir rota.",
-         "aiCodeMirrorDomestic": "Çin ana karasındaki ağlar için optimize edilmiş bir rota.",
+        "aiCodeMirrorGlobal": "Küresel erişim için yüksek korumalı bir rota.",
+        "aiCodeMirrorDomestic": "Çin ana karasındaki ağlar için optimize edilmiş bir rota.",
         "domestic": "Çin Ana Karasındaki Kullanıcılar ve İş Yükleri için. Ana Kara Ağlarında Genellikle Daha Düşük Gecikme.",
         "overseas": "Yurt Dışı Dağıtımlar, Sınır Ötesi Erişim veya Yurt Dışı Modeller Gerektiren İş Yükleri için.",
         "mainlandChinaRecommended": "Çin Ana Karası Ağlarındaki Kullanıcılar ve İş Yükleri için Önerilir.",

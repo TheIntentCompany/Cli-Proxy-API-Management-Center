@@ -234,7 +234,7 @@ export function ProviderSheet({
         state.mode === 'detail'
           ? t('providersPage.detail.title')
           : state.mode === 'create'
-            ? t('providersPage.form.createEyebrow')
+            ? undefined // the title already reads "New · <provider>"
             : t('providersPage.form.editEyebrow')
       }
       title={titleText}

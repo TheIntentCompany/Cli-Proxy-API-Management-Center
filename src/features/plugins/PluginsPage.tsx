@@ -585,6 +585,16 @@ export function PluginsPage() {
             </div>
           ))}
         </div>
+      ) : visiblePlugins.length === 0 && (data?.plugins.length ?? 0) > 0 ? (
+        <EmptyState
+          title={t('plugin_management.no_match_title')}
+          description={t('plugin_management.no_match_desc')}
+          action={
+            <Button variant="secondary" size="sm" onClick={() => setFilter('')}>
+              {t('plugin_management.clear_search')}
+            </Button>
+          }
+        />
       ) : visiblePlugins.length === 0 ? (
         <EmptyState
           title={t('plugin_management.no_plugins')}

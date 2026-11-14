@@ -1,16 +1,19 @@
 /**
- * One account on the Limits page: identity, its 5-hour and weekly usage, any
- * model-specific weekly limits, and a single line of account facts.
+ * One account on the Limits page. It carries everything the stock quota card had, in a
+ * row: identity and plan, the 5-hour, weekly and model-specific windows, the account's
+ * actions (Refresh quota, Claude's Reset limits, Codex's Reset quota and its credit
+ * setting), and a details block with banked resets and their expiry dates, extra usage,
+ * dollar balances, renewal time and credit balance.
  *
  * Before a usage read, the meters fall back to the rate-limit headers stored with the
- * account's latest served response, so the page is useful without clicking anything.
- * Actions (refresh, Claude banked resets, Codex reset and credit overage) reuse the
- * same hooks and dialogs as the card layout, so their safety checks are unchanged.
+ * account's latest served response. Actions reuse the stock hooks and dialogs, so their
+ * safety checks are unchanged.
  */
 
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LimitMeter } from '@/components/ui/LimitMeter';
+import { Badge, ErrorNotice, MiddleTruncate } from '@/components/ui/t3';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { useNow } from '@/hooks/useNow';
 import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
@@ -24,7 +27,11 @@ import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDialog } from '../providers/claude/ClaudeResetGrantDialog';
 import { hasClaudeUsageData } from '../providers/claude/data';
 import { CodexCreditOverageDialog } from '../providers/codex/CodexCreditOverageDialog';
-import { resolveCodexCreditOverageState } from '../providers/codex/creditOverage';
+import {
+  formatCodexCreditOverageConfirmedAt,
+  resolveCodexCreditOverageState,
+} from '../providers/codex/creditOverage';
+import { codexPlanLabel } from '../providers/codex/planLabel';
 import { useCodexCreditOverage } from '../providers/codex/useCodexCreditOverage';
 import styles from './QuotaRow.module.scss';
 
@@ -55,6 +62,16 @@ const COLOR = {
 
 const WEEKLY_ID = { claude: 'seven-day', codex: 'weekly' } as const;
 
+/** One labelled fact in the details block. */
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className={styles.fact}>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
 export function QuotaRow({
   entry,
   quota,
@@ -81,10 +98,10 @@ export function QuotaRow({
   const codexQuota = family === 'codex' ? (quota as CodexQuotaState | undefined) : undefined;
   // Claude keeps showing its last good reading while a refresh runs or after it fails.
   const retainedClaude = family === 'claude' && hasClaudeUsageData(claudeQuota);
-  const windows: WindowLike[] =
-    status === 'success' || retainedClaude
-      ? ((quota as { windows?: WindowLike[] })?.windows ?? [])
-      : [];
+  const hasReading = status === 'success' || retainedClaude;
+  const windows: WindowLike[] = hasReading
+    ? ((quota as { windows?: WindowLike[] })?.windows ?? [])
+    : [];
 
   const claudeReset = useClaudeResetGrants(
     file,
@@ -117,22 +134,17 @@ export function QuotaRow({
     (window) => window !== fiveHourWindow && window !== weeklyWindow
   );
 
+  const when = (ms: number) =>
+    `${formatShortDateTime(ms, locale)} (${formatRelative(ms, now, locale)})`;
   const windowName = (window: WindowLike) =>
     window.labelKey ? t(window.labelKey, window.labelParams) : window.label;
-
-  const detail = (reading: LimitReading | null) => {
-    if (!reading) return undefined;
-    const parts: string[] = [];
-    if (reading.resetAtMs) {
-      parts.push(
-        t('limits.resets', {
+  const meterDetail = (reading: LimitReading | null) =>
+    reading?.resetAtMs
+      ? t('limits.resets', {
           when: formatRelative(reading.resetAtMs, now, locale),
           date: formatShortDateTime(reading.resetAtMs, locale),
         })
-      );
-    }
-    return parts.join(' · ') || undefined;
-  };
+      : undefined;
 
   const errorMessage = resolveQuotaErrorMessage(
     t,
@@ -140,47 +152,145 @@ export function QuotaRow({
     quota?.error || t('common.unknown_error')
   );
 
-  /* ---------- the facts line ---------- */
+  const planLabel =
+    family === 'codex'
+      ? codexPlanLabel(t, codexQuota?.planType)
+      : claudeQuota?.planType
+        ? t(`claude_quota.${claudeQuota.planType}`, { defaultValue: claudeQuota.planType })
+        : null;
+
+  const headerSeenAt = headers.weekly?.observedAtMs ?? headers.fiveHour?.observedAtMs ?? null;
+  const statusLine = loading
+    ? t('limits.reading')
+    : status === 'idle' && headerSeenAt
+      ? t('limits.from_headers', { when: formatRelative(headerSeenAt, now, locale) })
+      : claudeQuota?.stale && claudeQuota.observedAt
+        ? t('limits.stale', {
+            time: formatShortDateTime(Date.parse(claudeQuota.observedAt), locale),
+          })
+        : null;
+
+  /* ---------- details: everything the stock card body showed ---------- */
 
   const facts: ReactNode[] = [];
-  const planType = (claudeQuota?.planType ?? codexQuota?.planType ?? null) as string | null;
-  if (planType && status === 'success') {
-    facts.push(
-      <span key="plan" className={styles.plan}>
-        {family === 'claude'
-          ? t(`claude_quota.${planType}`, { defaultValue: planType })
-          : t(`codex_quota.plan_${planType}`, { defaultValue: planType })}
-      </span>
-    );
-  }
 
   if (family === 'claude' && status === 'success') {
-    const remaining = claudeReset.grants
+    const grants = claudeReset.grants
       .filter((grant) => grant.resetsLeft > 0)
-      .map((grant) => parseIsoToMs(grant.endsAt))
-      .filter((ms): ms is number => ms !== null)
-      .sort((a, b) => a - b);
-    if (claudeReset.count === null) {
-      facts.push(<span key="resets">{t('limits.resets_loading')}</span>);
-    } else if (claudeReset.count === 0) {
-      facts.push(<span key="resets">{t('limits.no_resets')}</span>);
-    } else {
-      facts.push(
-        <span key="resets">
-          {t('limits.resets_available', { count: claudeReset.count })}
-          {remaining.length > 0 && (
-            <span className={styles.muted}>
-              {' '}
-              {t('limits.next_expiry', { when: formatShortDateTime(remaining[0], locale) })}
-            </span>
-          )}
-        </span>
-      );
-    }
+      .sort((a, b) => (parseIsoToMs(a.endsAt) ?? Infinity) - (parseIsoToMs(b.endsAt) ?? Infinity));
+    facts.push(
+      <Fact key="resets" label={t('claude_reset.title')}>
+        {claudeReset.count !== null && claudeReset.count > 0 && (
+          <span>
+            {t('claude_reset.remaining')}: {claudeReset.count}
+          </span>
+        )}
+        {claudeReset.count === null ? (
+          <span className={styles.muted}>{t('limits.resets_loading')}</span>
+        ) : grants.length === 0 ? (
+          <span className={styles.muted}>{t('claude_reset.empty')}</span>
+        ) : (
+          <ul className={styles.list}>
+            {grants.map((grant, index) => {
+              const ends = parseIsoToMs(grant.endsAt);
+              return (
+                <li key={grant.id}>
+                  <span className={styles.listLabel} title={grant.label || undefined}>
+                    {grant.label || t('claude_reset.grant_number', { index: index + 1 })}
+                  </span>
+                  <span className={styles.listValue}>
+                    {t('claude_reset.count', { left: grant.resetsLeft, total: grant.resetsTotal })}
+                  </span>
+                  <span className={styles.listWhen}>
+                    {ends ? when(ends) : t('claude_reset.expiry_unknown')}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Fact>
+    );
+
     const extra = claudeQuota?.extraUsage;
     if (extra) {
-      const off = extra.isEnabled === false || extra.userDisabled === true;
-      facts.push(<span key="extra">{off ? t('limits.extra_off') : t('limits.extra_on')}</span>);
+      const off =
+        extra.isEnabled === false ||
+        extra.userDisabled === true ||
+        extra.disabledReason === 'user_disabled';
+      const money = (value: number | null) => {
+        if (value === null) return '--';
+        try {
+          return new Intl.NumberFormat(locale, {
+            style: 'currency',
+            currency: extra.currency ?? 'USD',
+          }).format(value / 100);
+        } catch {
+          return `${(value / 100).toFixed(2)} ${extra.currency ?? 'USD'}`;
+        }
+      };
+      facts.push(
+        <Fact key="extra" label={t('claude_quota.extra_usage_label')}>
+          <span className={styles.inline}>
+            <Badge variant={off ? 'neutral' : 'success'}>
+              {t(
+                off
+                  ? 'claude_quota.extra_usage_disabled'
+                  : extra.isEnabled === true
+                    ? 'claude_quota.extra_usage_enabled'
+                    : 'claude_quota.plan_unknown'
+              )}
+            </Badge>
+            <span>
+              {t('claude_quota.usage_spent_limit', {
+                spent: money(extra.usedCredits),
+                limit: money(extra.monthlyLimit),
+              })}
+            </span>
+            {extra.utilization !== null && (
+              <span className={styles.muted}>
+                {t('claude_quota.usage_utilization', { percent: extra.utilization })}
+              </span>
+            )}
+          </span>
+          {extra.spendLimitReached && (
+            <span className={styles.note}>{t('claude_quota.extra_usage_spend_limit_reached')}</span>
+          )}
+          {extra.disabledReason && extra.disabledReason !== 'user_disabled' && (
+            <span className={styles.note}>
+              {t('claude_quota.extra_usage_disabled_reason', { reason: extra.disabledReason })}
+            </span>
+          )}
+        </Fact>
+      );
+    }
+
+    for (const balance of claudeQuota?.dollarWindows ?? []) {
+      const dollars = (value: number | null) =>
+        value === null
+          ? '--'
+          : new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(value);
+      const resetMs = resolveResetMs([balance.resetsAt]);
+      facts.push(
+        <Fact key={`balance-${balance.key}`} label={balance.key}>
+          <span>
+            {t('claude_quota.dollar_balance_remaining', {
+              amount: dollars(balance.remainingDollars),
+            })}
+          </span>
+          <span className={styles.muted}>
+            {t('claude_quota.usage_spent_limit', {
+              spent: dollars(balance.usedDollars),
+              limit: dollars(balance.limitDollars),
+            })}
+          </span>
+          <span className={styles.muted}>
+            {resetMs
+              ? `${t('claude_quota.balance_reset')} ${when(resetMs)}`
+              : t('claude_quota.balance_reset_unknown')}
+          </span>
+        </Fact>
+      );
     }
   }
 
@@ -188,62 +298,82 @@ export function QuotaRow({
     const renewsAtMs = resolveResetMs([codexQuota?.subscriptionActiveUntil ?? null]);
     if (renewsAtMs !== null) {
       facts.push(
-        <span key="renews">
-          {t('limits.renews', { date: formatShortDateTime(renewsAtMs, locale) })}
-        </span>
+        <Fact key="renews" label={t('codex_quota.expires_label')}>
+          {when(renewsAtMs)}
+        </Fact>
       );
     }
-    if (codexQuota?.creditsUnlimited) {
-      facts.push(<span key="credits">{t('limits.credits_unlimited')}</span>);
-    } else if (codexQuota?.creditBalance) {
+    if (codexQuota?.creditsUnlimited || codexQuota?.creditBalance != null) {
       facts.push(
-        <span key="credits">{t('limits.credits', { value: codexQuota.creditBalance })}</span>
+        <Fact key="credits" label={t('codex_quota.credit_balance_label')}>
+          {codexQuota?.creditsUnlimited
+            ? t('codex_quota.credit_unlimited')
+            : String(codexQuota?.creditBalance)}
+        </Fact>
       );
     }
     const available = codexQuota?.rateLimitResetCreditsAvailableCount;
-    if (typeof available === 'number') {
-      const firstExpiry = (codexQuota?.rateLimitResetCredits ?? [])
-        .map((credit) => parseIsoToMs(credit.expiresAt))
-        .filter((ms): ms is number => ms !== null)
-        .sort((a, b) => a - b)[0];
+    const credits = codexQuota?.rateLimitResetCredits ?? [];
+    if (
+      typeof available === 'number' ||
+      credits.length > 0 ||
+      codexQuota?.rateLimitResetCreditsError
+    ) {
       facts.push(
-        <span key="reset-credits">
-          {t('limits.reset_credits', { count: available })}
-          {firstExpiry !== undefined && (
-            <span className={styles.muted}>
-              {' '}
-              {t('limits.next_expiry', { when: formatShortDateTime(firstExpiry, locale) })}
+        <Fact key="reset-credits" label={t('codex_quota.reset_credits_label')}>
+          {typeof available === 'number' && <span>{available}</span>}
+          {credits.length > 0 && (
+            <ul className={styles.list}>
+              {credits.map((credit, index) => {
+                const expires = parseIsoToMs(credit.expiresAt);
+                return (
+                  <li key={credit.id || index}>
+                    <span className={styles.listLabel}>
+                      {t('codex_quota.reset_credit_number', { index: index + 1 })}
+                    </span>
+                    <span className={styles.listWhen}>
+                      {expires ? when(expires) : credit.expiresAt}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {codexQuota?.rateLimitResetCreditsError && (
+            <span className={styles.note}>
+              {t('codex_quota.reset_credits_expiry_failed', {
+                message: codexQuota.rateLimitResetCreditsError,
+              })}
             </span>
           )}
-        </span>
-      );
-    }
-    if (codexQuota?.rateLimitResetCreditsError) {
-      facts.push(
-        <span key="reset-credits-error" className={styles.error}>
-          {t('limits.reset_credits_failed')}
-        </span>
+        </Fact>
       );
     }
     if (creditOverage.visible) {
+      const state = resolveCodexCreditOverageState(creditOverage.entry);
       facts.push(
-        <span key="overage">
-          {t('limits.overage', {
-            state: t(
-              `codex_quota.credit_overage_state_${resolveCodexCreditOverageState(creditOverage.entry)}`
-            ),
-          })}{' '}
-          <button
-            type="button"
-            className={styles.link}
-            onClick={creditOverage.openDialog}
-            disabled={creditOverage.blocked}
-            aria-haspopup="dialog"
-            aria-label={t('codex_quota.credit_overage_manage_aria', { name: title })}
-          >
-            {t('codex_quota.credit_overage_manage')}
-          </button>
-        </span>
+        <Fact key="overage" label={t('codex_quota.credit_overage_label')}>
+          <span className={styles.inline}>
+            <span>{t(`codex_quota.credit_overage_state_${state}`)}</span>
+            {creditOverage.entry?.status === 'known' && (
+              <span className={styles.muted}>
+                {t('codex_quota.credit_overage_confirmed_at', {
+                  time: formatCodexCreditOverageConfirmedAt(creditOverage.entry.at),
+                })}
+              </span>
+            )}
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={creditOverage.openDialog}
+              disabled={creditOverage.blocked}
+              aria-haspopup="dialog"
+              aria-label={t('codex_quota.credit_overage_manage_aria', { name: title })}
+            >
+              {t('codex_quota.credit_overage_manage')}
+            </button>
+          </span>
+        </Fact>
       );
     }
   }
@@ -254,60 +384,46 @@ export function QuotaRow({
     quota !== undefined &&
     Boolean(adapter.canResetQuota?.(quota));
 
-  const headerSeenAt = headers.weekly?.observedAtMs ?? headers.fiveHour?.observedAtMs ?? null;
-  const statusNote =
-    status === 'idle'
-      ? headerSeenAt
-        ? t('limits.from_headers', { when: formatRelative(headerSeenAt, now, locale) })
-        : null
-      : loading
-        ? t('limits.reading')
-        : status === 'error'
-          ? t(`${adapter.i18nPrefix}.load_failed`, { message: errorMessage })
-          : claudeQuota?.stale && claudeQuota.observedAt
-            ? t('limits.stale', {
-                time: formatShortDateTime(Date.parse(claudeQuota.observedAt), locale),
-              })
-            : null;
-
   return (
     <li className={styles.row} aria-busy={loading || undefined}>
       <div className={styles.account}>
         <span className={styles.swatch} style={{ background: COLOR[family] }} aria-hidden="true" />
         <div className={styles.accountText}>
-          <span className={styles.name} title={title}>
-            {title}
-          </span>
+          <MiddleTruncate className={styles.name} value={title} />
           <span className={styles.sub}>
-            {t(`limits.family_${family}`)}
-            {file.disabled ? ` · ${t('limits.disabled')}` : ''}
+            <span>{t(`limits.family_${family}`)}</span>
+            {planLabel && <Badge variant="outline">{planLabel}</Badge>}
+            {file.disabled && <Badge>{t('limits.disabled')}</Badge>}
           </span>
+          {statusLine && <span className={styles.status}>{statusLine}</span>}
         </div>
       </div>
 
-      <LimitMeter
-        label={t('limits.five_hour')}
-        usedPercent={fiveHour?.usedPercent ?? null}
-        color={COLOR[family]}
-        detail={detail(fiveHour)}
-        emptyText={t('limits.not_reported')}
-        warningText={t('limits.near_limit')}
-        labelHidden
-      />
-      <LimitMeter
-        label={t('limits.weekly')}
-        usedPercent={weekly?.usedPercent ?? null}
-        color={COLOR[family]}
-        detail={detail(weekly)}
-        emptyText={t('limits.not_reported')}
-        warningText={t('limits.near_limit')}
-        labelHidden
-      />
+      <div className={`${styles.meter} ${styles.meterFive}`}>
+        <LimitMeter
+          label={t('limits.five_hour')}
+          usedPercent={fiveHour?.usedPercent ?? null}
+          color={COLOR[family]}
+          detail={meterDetail(fiveHour)}
+          emptyText={t('limits.not_reported')}
+          warningText={t('limits.near_limit')}
+          labelHidden
+        />
+      </div>
+      <div className={`${styles.meter} ${styles.meterWeek}`}>
+        <LimitMeter
+          label={t('limits.weekly')}
+          usedPercent={weekly?.usedPercent ?? null}
+          color={COLOR[family]}
+          detail={meterDetail(weekly)}
+          emptyText={t('limits.not_reported')}
+          warningText={t('limits.near_limit')}
+          labelHidden
+        />
+      </div>
       <div className={styles.others}>
         {otherWindows.length === 0 ? (
-          <span className={styles.none}>
-            {status === 'success' ? t('limits.no_model_limits') : ''}
-          </span>
+          <span className={styles.none}>{hasReading ? t('limits.no_model_limits') : ''}</span>
         ) : (
           otherWindows.map((window) => (
             <LimitMeter
@@ -332,7 +448,7 @@ export function QuotaRow({
       <div className={styles.actions}>
         <button
           type="button"
-          className={styles.readButton}
+          className={styles.action}
           onClick={onRefresh}
           disabled={isQuotaRefreshDisabled(canRefresh, loading, resetting || claudeReset.busy)}
           title={t('auth_files.quota_refresh_hint')}
@@ -342,55 +458,59 @@ export function QuotaRow({
             className={loading ? styles.spinning : undefined}
             aria-hidden="true"
           />
-          {status === 'idle' ? t('limits.read') : t('limits.refresh')}
+          {t('auth_files.quota_refresh_single')}
         </button>
+        {family === 'claude' && (
+          <button
+            type="button"
+            className={styles.action}
+            disabled={status === 'idle' || claudeReset.blocked}
+            onClick={claudeReset.openDialog}
+            aria-haspopup="dialog"
+            title={t(`claude_reset.${claudeReset.buttonLabel}`)}
+          >
+            <IconRefreshCw
+              size={13}
+              className={claudeReset.busy ? styles.spinning : undefined}
+              aria-hidden="true"
+            />
+            {t(`claude_reset.${claudeReset.buttonLabel}`)}
+          </button>
+        )}
+        {showCodexReset && (
+          <button
+            type="button"
+            className={styles.action}
+            onClick={onReset}
+            disabled={!canRefresh || loading || resetting}
+            title={t('codex_quota.reset_button')}
+          >
+            <IconRefreshCw
+              size={13}
+              className={resetting ? styles.spinning : undefined}
+              aria-hidden="true"
+            />
+            {t('codex_quota.reset_button')}
+          </button>
+        )}
       </div>
 
-      {(facts.length > 0 ||
-        statusNote ||
-        claudeReset.message ||
-        family === 'claude' ||
-        showCodexReset) && (
-        <div className={styles.facts}>
-          {statusNote && (
-            <span
-              className={status === 'error' ? styles.error : styles.muted}
-              role={status === 'error' ? 'alert' : undefined}
-            >
-              {statusNote}
-            </span>
-          )}
-          {facts.map((fact, index) => (
-            <span key={index} className={styles.fact}>
-              {fact}
-            </span>
-          ))}
-          {family === 'claude' && status !== 'idle' && (
-            <button
-              type="button"
-              className={styles.link}
-              disabled={claudeReset.blocked}
-              onClick={claudeReset.openDialog}
-              aria-haspopup="dialog"
-            >
-              {t(`claude_reset.${claudeReset.buttonLabel}`)}
-            </button>
-          )}
-          {showCodexReset && (
-            <button
-              type="button"
-              className={styles.link}
-              onClick={onReset}
-              disabled={!canRefresh || loading || resetting}
-            >
-              {t('codex_quota.reset_button')}
-            </button>
+      {(facts.length > 0 || status === 'error' || claudeReset.message) && (
+        <div className={styles.details}>
+          {status === 'error' && (
+            <ErrorNotice
+              error={t(`${adapter.i18nPrefix}.load_failed`, { message: errorMessage })}
+              detailsLabel={t('common.details', { defaultValue: 'Details' })}
+            />
           )}
           {claudeReset.message && (
-            <span role="status" className={styles.error}>
-              {t(`claude_reset.${claudeReset.message}`)}
-            </span>
+            <ErrorNotice
+              tone="warning"
+              error={t(`claude_reset.${claudeReset.message}`)}
+              detailsLabel={t('common.details', { defaultValue: 'Details' })}
+            />
           )}
+          {facts.length > 0 && <dl className={styles.facts}>{facts}</dl>}
         </div>
       )}
 

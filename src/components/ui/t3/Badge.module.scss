@@ -1,0 +1,29 @@
+@use '../../../styles/mixins' as *;
+
+.badge {
+  @include t3-badge(neutral);
+}
+
+.neutral {
+  @include t3-badge(neutral);
+}
+
+.outline {
+  @include t3-badge(outline);
+}
+
+.success {
+  @include t3-badge(success);
+}
+
+.warning {
+  @include t3-badge(warning);
+}
+
+.error {
+  @include t3-badge(error);
+}
+
+.info {
+  @include t3-badge(info);
+}

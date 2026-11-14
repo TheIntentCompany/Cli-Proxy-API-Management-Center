@@ -1,0 +1,30 @@
+.root {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.head {
+  min-width: 0;
+  overflow: hidden;
+  white-space: pre;
+}
+
+.tail {
+  flex-shrink: 0;
+  white-space: pre;
+}
+
+/* The tail carries the ellipsis so it sits flush against the cut. */
+.head[data-overflow] + .tail::before {
+  content: '…';
+}
+
+.whole {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

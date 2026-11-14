@@ -308,3 +308,9 @@
     animation: none;
   }
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.actionPill {
+  @include t3-button(outline, xs);
+}
+/* ===== end T3 control language ===== */

@@ -38,8 +38,10 @@
 
 /* ---------- 卡片网格 ---------- */
 
-/* Accounts read as one list: a row per account, separated by hairlines. */
+/* Accounts read as one list: a row per account, separated by hairlines. Rows lay
+ * themselves out from this container's width (see AuthFileCard.module.scss). */
 .grid {
+  container: accounts / inline-size;
   display: grid;
   gap: 0;
   grid-template-columns: minmax(0, 1fr);
@@ -124,7 +126,15 @@
 }
 
 .upstreamList {
+  container: limits / inline-size;
+  --limits-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.05fr) 128px;
   display: flex;
   flex-direction: column;
   border-bottom: 1px solid var(--border-color);
+}
+
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }

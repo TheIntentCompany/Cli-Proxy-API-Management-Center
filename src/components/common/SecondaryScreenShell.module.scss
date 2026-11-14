@@ -1,3 +1,4 @@
+@use '../../styles/mixins' as *;
 @use '../../styles/variables' as *;
 
 .container {
@@ -82,3 +83,9 @@
   flex-direction: column;
   gap: $spacing-lg;
 }
+
+/* ===== T3 control language (generated; see src/styles/mixins.scss) ===== */
+.backButton {
+  @include t3-button(ghost, sm);
+}
+/* ===== end T3 control language ===== */
