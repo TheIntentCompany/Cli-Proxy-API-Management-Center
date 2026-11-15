@@ -40,6 +40,10 @@ import {
 import { totalTokens, type UsageGroup } from '@/services/api/usage';
 import { formatCount, formatTokens, formatUsd } from '@/features/usage/format';
 import { useUsageSummary } from '@/features/usage/hooks';
+import { usePool } from '@/features/pool/usePool';
+import { poolNow } from '@/features/pool/model';
+import type { LiveLimits } from '@/features/quota/components/QuotaRow';
+import type { PoolAccount } from '@/services/api/usage';
 import { RangePicker } from '@/features/usage/RangePicker';
 import { resolveRange, useUsageRange } from '@/features/usage/range';
 import { useNow } from '@/hooks/useNow';
@@ -603,6 +607,40 @@ export function AuthFilesPage() {
     });
     return map;
   }, [usageSummary]);
+  /* ---------- Limits the collector reads on its own every few minutes ---------- */
+
+  const { state: poolState } = usePool();
+  const liveByFile = useMemo(() => {
+    const map = new Map<string, LiveLimits>();
+    const windowOf = (account: PoolAccount, kind: string) => {
+      const window = account.windows.find((item) => item.kind === kind);
+      return window ? { usedPercent: window.usedPercent, resetsAtMs: window.resetsAtMs } : null;
+    };
+    poolState?.accounts.forEach((account) => {
+      const live: LiveLimits = {
+        observedAtMs: account.observedAtMs,
+        stale: account.stale,
+        fiveHour: windowOf(account, 'five_hour'),
+        weekly: windowOf(account, 'weekly'),
+        fable: windowOf(account, 'fable'),
+        limitedUntilMs: account.limitedUntilMs,
+      };
+      if (account.fileName) map.set(`file:${account.fileName}`, live);
+      if (account.authIndex) map.set(`auth:${account.authIndex}`, live);
+    });
+    return map;
+  }, [poolState]);
+  const liveFor = (file: { name: string; authIndex?: unknown }) =>
+    liveByFile.get(`file:${file.name}`) ??
+    (typeof file.authIndex === 'string' ? liveByFile.get(`auth:${file.authIndex}`) : undefined) ??
+    null;
+  const poolSummary = useMemo(() => {
+    if (!poolState || poolState.accounts.length === 0) return null;
+    return (['claude', 'codex'] as const)
+      .map((provider) => ({ provider, pool: poolNow(poolState.accounts, provider, 'weekly', now) }))
+      .filter((entry) => entry.pool.members.length > 0);
+  }, [poolState, now]);
+
   const usageLine = (group: UsageGroup | undefined): ReactNode => {
     if (!usageSummary) return null;
     if (!group || group.requests === 0) return t('accounts.usage_none');
@@ -780,6 +818,22 @@ export function AuthFilesPage() {
           }
         />
 
+        {poolSummary && poolSummary.length > 0 && (
+          <button type="button" className={styles.poolStrip} onClick={() => navigate('/pool')}>
+            <span className={styles.poolStripLabel}>{t('pool.strip_label')}</span>
+            {poolSummary.map(({ provider, pool }) => (
+              <span key={provider} className={styles.poolStripItem}>
+                <strong>{provider === 'claude' ? 'Claude' : 'Codex'}</strong>{' '}
+                {t('pool.strip_value', {
+                  remaining: Math.round(pool.remaining),
+                  capacity: Math.round(pool.capacity),
+                })}
+              </span>
+            ))}
+            <span className={styles.poolStripLink}>{t('pool.strip_link')}</span>
+          </button>
+        )}
+
         <div className={styles.rangeRow}>
           <span className={styles.rangeLabel}>{t('accounts.usage_range_label')}</span>
           <RangePicker range={range} onChange={setRange} />
@@ -873,6 +927,7 @@ export function AuthFilesPage() {
                     manualRefreshing={manualRefreshing}
                     cooldownResetting={cooldownResetting}
                     usage={usage}
+                    live={liveFor(file)}
                     onToggleSelect={toggleSelect}
                     onShowModels={showModels}
                     onDownload={handleDownload}

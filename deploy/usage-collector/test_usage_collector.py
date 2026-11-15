@@ -346,7 +346,8 @@ class Fixture(unittest.TestCase):
             handler._send = lambda status, body, extra=None: result.append((status, json.loads(body)))
             getattr(handler, 'do_' + method)()
             return result[0]
-        for path in ['/v1/health', '/v1/summary?from='+str(BASE)+'&to='+str(BASE+u.HOUR),
+        for path in ['/v1/health', '/v1/pool', '/v1/pool?from='+str(BASE)+'&to='+str(BASE+u.HOUR),
+                     '/v1/summary?from='+str(BASE)+'&to='+str(BASE+u.HOUR),
                      '/v1/requests?from='+str(BASE)+'&to='+str(BASE+u.HOUR), '/v1/requests/1']:
             self.assertEqual(call(path)[0], 200)
         self.assertEqual(call('/v1/health', host='attacker.invalid')[0], 403)
@@ -358,7 +359,391 @@ class Fixture(unittest.TestCase):
         self.assertEqual(call('/v1/summary?tz=MadeUp/Zone')[0], 400)
         self.assertEqual(call('/v1/requests?limit=0')[0], 400)
         self.assertEqual(call('/v1/requests?limit=1&limit=2')[0], 400)
+        self.assertEqual(call('/v1/pool?from=2&to=1')[0], 400)
         self.assertEqual(call('http://localhost:8337/v1/health')[0], 400)
+
+
+class QuotaTests(unittest.TestCase):
+    setUp = Fixture.setUp
+
+    def writer(self):
+        writer = u.QuotaWriter(self.store)
+        self.addCleanup(writer.close)
+        return writer
+
+    def account(self, provider='claude'):
+        return u.quota_account(provider, provider + '-fixture.json', label='seat@example.invalid',
+                               file_name=provider + '-fixture.json', auth_index='fixture-index')
+
+    def poller(self, entries=()):
+        import threading
+        gateway = SimpleNamespace(key='fixture-management', get=unittest.mock.Mock(
+            return_value={'files': list(entries)}), request=unittest.mock.Mock())
+        poller = u.QuotaPoller(self.store, gateway, threading.Event(), self.path / 'seats.json')
+        poller.writer = self.writer()
+        return poller
+
+    def seat_document(self, at=BASE):
+        name = 'claude-27cd370d-seat@example.invalid.json'
+        reading = {'observed_at': '2026-11-14T00:00:00Z', 'source': 'usage-endpoint',
+            'windows': [{'kind': 'five_hour', 'utilization': 1.1, 'duration': 18_000_000_000_000,
+                         'resets_at': '2026-11-14T05:00:00Z'},
+                        {'kind': 'seven_day', 'utilization': .5, 'resets_at': '0001-01-01T00:00:00Z'},
+                        {'kind': 'weekly_scoped', 'scope': 'Fable', 'utilization': .25,
+                         'resets_at': '2026-11-21T00:00:00Z'}]}
+        seats = [{'kind': 'five_hour', 'cycles': [{'resets_at': '2026-11-14T05:00:00Z',
+            'samples': [[(at - 10000) / 1000, .1], [(at - 5000) / 1000, .2]]}],
+            'locks': [{'from': at / 1000 - 60, 'to': at / 1000 + 600},
+                      {'from': at / 1000 - 60, 'to': at / 1000 + 900, 'end': 'served'},
+                      {'from': at / 1000 - 60, 'to': at / 1000 - 1},
+                      {'from': at / 1000 - 60, 'to': at / 1000 + 1200, 'end': 'reset'}]}]
+        return {'version': 1, 'readings': {name: reading}, 'seats': {name: seats}}
+
+    def test_seat_windows_fable_sentinel_locks_and_labels(self):
+        doc = self.seat_document()
+        name = next(iter(doc['readings']))
+        observed, windows, limited = u.seat_reading(doc['readings'][name], doc['seats'][name], BASE)
+        self.assertEqual(observed, BASE)
+        self.assertEqual([w['kind'] for w in windows], ['five_hour', 'weekly', 'fable'])
+        self.assertAlmostEqual(windows[0]['used_percent'], 110)
+        self.assertEqual(windows[0]['window_minutes'], 300)
+        self.assertIsNone(windows[1]['resets_at'])
+        self.assertEqual(limited, BASE + 600000)
+        self.assertEqual(u.seat_label(name), 'seat@example.invalid')
+        self.assertEqual(u.seat_label('claude-tc_584a69b4fc2e39a1.json'), 'claude-tc_584a69b4fc2e39a1')
+        fallback = u.claude_windows({'five_hour': {'utilization': 103, 'resets_at': None},
+            'seven_day': {'utilization': 12}, 'limits': [{'kind': 'weekly_scoped',
+            'scope': {'model': {'display_name': 'Fable'}}, 'percent': 42}]})
+        self.assertEqual([w['used_percent'] for w in fallback], [103, 12, 42])
+
+    def test_history_import_idempotent_newer_cursor_and_restart(self):
+        writer = self.writer()
+        doc = self.seat_document()
+        seats = next(iter(doc['seats'].values()))
+        writer.import_seats('seat', seats, BASE)
+        writer.import_seats('seat', seats, BASE)
+        self.assertEqual(writer.conn.execute('SELECT count(*) FROM quota_samples').fetchone()[0], 2)
+        seats[0]['cycles'][0]['samples'].extend([[(BASE - 15000) / 1000, .05], [BASE / 1000, .3]])
+        writer.import_seats('seat', seats, BASE)
+        self.assertEqual(writer.conn.execute('SELECT count(*) FROM quota_samples').fetchone()[0], 3)
+        reopened = self.writer()
+        reopened.import_seats('seat', seats, BASE)
+        self.assertEqual(reopened.conn.execute('SELECT count(*) FROM quota_samples').fetchone()[0], 3)
+        # A newer gateway point must not suppress Seat Pacer's older source history.
+        writer.conn.execute('INSERT INTO quota_samples VALUES (?,?,?,?,?)', ('seat', 'weekly', BASE, 50, None))
+        writer.import_seats('seat', [{'kind': 'seven_day', 'cycles': [{'samples': [[BASE/1000 - 5, .1]]}]}], BASE)
+        self.assertEqual(writer.conn.execute("SELECT count(*) FROM quota_samples WHERE kind='weekly'").fetchone()[0], 2)
+
+    def test_sample_dedup_reset_change_and_heartbeat(self):
+        writer = self.writer()
+        with writer.transaction():
+            for ts, used, reset in [(BASE, 10, None), (BASE+60000, 10, None),
+                    (BASE+1800000, 10, None), (BASE+1800001, 11, None),
+                    (BASE+1800002, 11, BASE+u.DAY), (BASE-1, 12, None)]:
+                writer.sample('seat', 'five_hour', ts, used, reset)
+        rows = writer.conn.execute('SELECT ts FROM quota_samples ORDER BY ts').fetchall()
+        self.assertEqual([r[0] for r in rows], [BASE, BASE+1800000, BASE+1800001, BASE+1800002])
+
+    def test_codex_mapping_by_length_relative_reset_and_unknown_length(self):
+        windows = u.codex_windows({'rate_limit': {
+            'primary_window': {'limit_window_seconds': 604800, 'used_percent': 22, 'reset_at': BASE/1000+99},
+            'secondary_window': {'limit_window_seconds': 18000, 'used_percent': 101, 'reset_after_seconds': 88}}}, BASE)
+        self.assertEqual([w['kind'] for w in windows], ['weekly', 'five_hour'])
+        self.assertEqual(windows[1]['resets_at'], BASE+88000)
+        windows = u.codex_windows({'rate_limit': {'primary_window': {
+            'limit_window_seconds': 2592000, 'used_percent': 3}}}, BASE)
+        self.assertEqual(windows[0]['kind'], 'monthly')
+        with self.assertRaises(ValueError):
+            u.codex_windows({'rate_limit': {'primary_window': {
+                'limit_window_seconds': 60, 'used_percent': 3}}}, BASE)
+
+    def test_lb_mapping_deduplicates_accounts_preserves_source_times(self):
+        account = {'id': 'hashed-account', 'email': 'lb@example.invalid', 'plan_type': 'pro',
+            'status': 'limited', 'blocked_until': BASE/1000+30, 'reset_credits_available': 2,
+            'details_recorded_at': '2026-11-13T23:00:00Z', 'windows': [
+                {'kind': 'five_hour', 'used_percent': 90, 'reset_at': BASE/1000+60,
+                 'window_minutes': 300, 'recorded_at': '2026-11-13T23:55:00Z'},
+                {'kind': 'monthly', 'used_percent': 20, 'window_minutes': 43200,
+                 'recorded_at': '2026-11-13T23:56:00Z'},
+                {'kind': 'weekly', 'used_percent': 10, 'stale': True}]}
+        values = u.lb_accounts({'keys': [{'key_prefix': RAW, 'accounts': [account]}, {'accounts': [account]}]}, BASE)
+        self.assertEqual(len(values), 1)
+        value = values[0]
+        self.assertEqual(value['via'], 'codex-lb')
+        self.assertEqual(value['observed_at'], BASE-300000)
+        self.assertEqual(value['limited_until'], BASE+30000)
+        self.assertEqual(value['banked_resets']['observed_at'], BASE-u.HOUR)
+        self.assertEqual([w['kind'] for w in value['windows']], ['five_hour', 'monthly'])
+        with patch.object(u, 'now_ms', return_value=BASE):
+            self.writer().save(value)
+        rows = self.store.conn.execute('SELECT kind,ts FROM quota_samples ORDER BY ts').fetchall()
+        self.assertEqual([r['ts'] for r in rows], [BASE-300000, BASE-240000])
+        self.assertNotIn('_sample_times', json.dumps(self.store.pool({})))
+        self.assertNotIn(RAW, json.dumps(value))
+
+    def test_banked_resets_exclude_expired_and_unavailable(self):
+        claude = u.banked_resets('claude', {'cedar_ember': {'grants': [
+            {'resets_total': 3, 'resets_left': 2, 'ends_at': '2026-11-15T00:00:00Z'},
+            {'resets_total': 3, 'resets_left': 3, 'ends_at': '2026-11-13T00:00:00Z'},
+            {'resets_total': 1, 'resets_left': 0, 'ends_at': '2026-11-14T01:00:00Z'}]}}, BASE)
+        self.assertEqual(claude, {'available': 2, 'next_expires_at': BASE+u.DAY, 'observed_at': BASE})
+        codex = u.banked_resets('codex', {'credits': [
+            {'status': 'available', 'expires_at': '2026-11-15T00:00:00Z'},
+            {'status': 'available', 'expires_at': BASE/1000+60},
+            {'status': 'consumed', 'expires_at': BASE/1000+20},
+            {'status': 'available', 'expires_at': BASE/1000-1}]}, BASE)
+        self.assertEqual(codex['available'], 2)
+        self.assertEqual(codex['next_expires_at'], BASE+60000)
+        with self.assertRaises(KeyError):
+            u.banked_resets('codex', {}, BASE)
+
+    def test_fallback_uses_seat_freshness_not_last_gateway_read(self):
+        name = next(iter(self.seat_document()['readings']))
+        poller = self.poller([{'provider': 'claude', 'name': name, 'auth_index': 'index'}])
+        poller.seat_path.write_text(json.dumps(self.seat_document()))
+        poller.gateway.request.return_value = {'status_code': 200, 'body': json.dumps({
+            'five_hour': {'utilization': 10}, 'cedar_ember': {'grants': []}})}
+        with patch.object(u, 'now_ms', return_value=BASE), patch.object(u.time, 'monotonic', return_value=100), patch.object(u, 'loopback_json', return_value={'keys': []}):
+            poller.tick()
+        # Fresh Seat Pacer requires only the independent bank request.
+        self.assertEqual(poller.gateway.request.call_count, 1)
+        self.assertIn('cedar_ember', poller.gateway.request.call_args.args[2]['url'])
+        poller.gateway.request.reset_mock()
+        with patch.object(u, 'now_ms', return_value=BASE+16*60000), patch.object(u.time, 'monotonic', return_value=1060), patch.object(u, 'loopback_json', return_value={'keys': []}):
+            poller.tick()
+        self.assertEqual(poller.gateway.request.call_count, 1)
+        self.assertEqual(poller.gateway.request.call_args.args[2]['url'], u.CLAUDE_URL)
+        with patch.object(u, 'now_ms', return_value=BASE+17*60000), patch.object(u.time, 'monotonic', return_value=1120):
+            poller.tick()
+        self.assertEqual(poller.gateway.request.call_count, 1)
+        with patch.object(u, 'now_ms', return_value=BASE+21*60000), patch.object(u.time, 'monotonic', return_value=1360), patch.object(u, 'loopback_json', return_value={'keys': []}):
+            poller.tick()
+        self.assertEqual(poller.gateway.request.call_count, 2)
+
+    def test_missing_file_falls_back_and_error_is_category_only(self):
+        poller = self.poller([{'provider': 'claude', 'name': 'claude-fixture.json', 'auth_index': 'index'}])
+        poller.gateway.request.return_value = {'status_code': 200, 'body': json.dumps({
+            'five_hour': {'utilization': 5}, 'cedar_ember': {'grants': []}})}
+        with patch.object(u, 'now_ms', return_value=BASE), patch.object(u.time, 'monotonic', return_value=1), patch.object(u, 'loopback_json', return_value={'keys': []}), patch.object(u.sys, 'stderr'):
+            poller.tick()
+        self.assertEqual(poller.gateway.request.call_count, 2)
+        result = self.store.pool({})
+        self.assertEqual(result['accounts'][0]['source'], 'gateway')
+        self.assertEqual(result['accounts'][0]['error'], 'io')
+        self.assertEqual(self.store.health()['quota_errors']['seat-pacer'], 1)
+
+    def test_codex_usage_discovery_and_bank_intervals(self):
+        poller = self.poller([{'provider': 'codex', 'name': 'codex.json', 'auth_index': 'index'}])
+        def response(method, path, payload):
+            body = {'credits': []} if payload['url'].endswith('reset-credits') else {
+                'rate_limit': {'primary_window': {'limit_window_seconds': 18000, 'used_percent': 5}}}
+            return {'status_code': 200, 'body': json.dumps(body)}
+        poller.gateway.request.side_effect = response
+        with patch.object(poller, 'read_seats'), patch.object(poller, 'read_lb'):
+            for clock, expected_calls, expected_discoveries in ((0, 2, 1), (239, 2, 1),
+                    (240, 3, 1), (900, 4, 2), (1799, 5, 2), (1800, 6, 3)):
+                with patch.object(u.time, 'monotonic', return_value=clock), patch.object(u, 'now_ms', return_value=BASE+clock*1000):
+                    poller.tick()
+                self.assertEqual(poller.gateway.request.call_count, expected_calls)
+                self.assertEqual(poller.gateway.get.call_count, expected_discoveries)
+
+    def test_bad_seat_and_lb_account_do_not_stop_other_accounts(self):
+        poller = self.poller()
+        document = self.seat_document()
+        broken = json.loads(json.dumps(next(iter(document['readings'].values()))))
+        broken['windows'][0]['utilization'] = RAW
+        document['readings']['claude-bad.json'] = broken
+        poller.seat_path.write_text(json.dumps(document))
+        with patch.object(u.sys, 'stderr'), patch.object(u, 'now_ms', return_value=BASE):
+            poller.read_seats(BASE, u.time.monotonic())
+        accounts = self.store.pool({})['accounts']
+        self.assertEqual(sorted(a['error'] or '' for a in accounts), ['', 'invalid_data'])
+        bad, good = {'id': 'bad', 'windows': [{'kind': 'five_hour', 'used_percent': RAW}]}, {
+            'id': 'good', 'windows': [{'kind': 'five_hour', 'used_percent': 4,
+                'recorded_at': '2026-11-14T00:00:00Z', 'window_minutes': 300}]}
+        with patch.object(u, 'loopback_json', return_value={'keys': [{'accounts': [bad, good]}]}), patch.object(u.sys, 'stderr'), patch.object(u, 'now_ms', return_value=BASE):
+            poller.read_lb(BASE)
+        lb = [a for a in self.store.pool({})['accounts'] if a['via']=='codex-lb']
+        self.assertEqual(len(lb), 2)
+        self.assertEqual(sorted(a['error'] or '' for a in lb), ['', 'invalid_data'])
+        self.assertEqual(self.store.health()['quota_errors']['codex-lb'], 1)
+
+    def test_shutdown_does_not_start_bank_after_slow_usage(self):
+        poller = self.poller([{'provider': 'codex', 'name': 'codex.json', 'auth_index': 'index'}])
+        def usage(account):
+            poller.stop.set()
+        with patch.object(poller, 'read_seats'), patch.object(poller, 'read_lb'), patch.object(poller, 'gateway_read', side_effect=usage) as read:
+            poller.tick()
+        self.assertEqual(read.call_count, 1)
+
+    def test_backoff_is_per_account_operation_and_caps_at_hour(self):
+        poller = self.poller()
+        action = unittest.mock.Mock(side_effect=ValueError(RAW))
+        clock = 10
+        for delay in (300, 600, 1200, 2400, 3600, 3600):
+            with patch.object(u.time, 'monotonic', return_value=clock), patch.object(u.sys, 'stderr'):
+                poller.attempt('one', 'usage', 'gateway', 240, clock, action)
+            self.assertEqual(poller.schedule['one', 'usage'][0], clock+delay)
+            self.assertFalse(poller.due('one', 'usage', clock+delay-1))
+            self.assertTrue(poller.due('two', 'usage', clock))
+            self.assertTrue(poller.due('one', 'bank', clock))
+            clock += delay
+        with patch.object(u.time, 'monotonic', return_value=clock):
+            poller.attempt('one', 'usage', 'gateway', 240, clock, lambda: None)
+        self.assertEqual(poller.schedule['one', 'usage'], (clock+240, 0))
+        self.assertEqual(self.store.health()['quota_errors']['gateway'], 6)
+        self.assertNotIn(RAW, json.dumps(self.store.health()))
+
+    def test_auth_metadata_proxy_headers_and_no_secrets_in_storage(self):
+        jwt = 'eyJfixture.payload.signature'
+        poller = self.poller([{'provider': 'codex', 'name': 'codex-fixture.json', 'auth_index': 'index',
+            'email': RAW, 'api_key': RAW, 'access_token': 'opaque-oauth-token-fixture',
+            'id_token': {'chatgpt_plan_type': 'pro', 'chatgpt_account_id': 'account-id'}},
+            {'provider': 'codex', 'name': 'disabled.json', 'auth_index': 'disabled', 'disabled': True},
+            {'provider': 'other', 'name': 'other.json', 'auth_index': 'other'}])
+        poller.discover()
+        self.assertEqual(len(poller.active), 1)
+        account = next(iter(poller.accounts.values()))
+        poller.gateway.request.return_value = {'status_code': 200, 'body': json.dumps({'rate_limit': {
+            'primary_window': {'limit_window_seconds': 18000, 'used_percent': 3}}})}
+        poller.gateway_read(account)
+        request = poller.gateway.request.call_args.args[2]
+        self.assertEqual(request['header']['Authorization'], 'Bearer $TOKEN$')
+        self.assertEqual(request['header']['Chatgpt-Account-Id'], 'account-id')
+        self.assertEqual(request['url'], u.CODEX_URL+'usage')
+        poller.gateway.request.return_value = {'status_code': 200, 'body': '{"credits":[]}'}
+        poller.gateway_read(account, True)
+        headers = poller.gateway.request.call_args.args[2]['header']
+        self.assertEqual(headers['OpenAI-Beta'], 'codex-1')
+        self.assertEqual(headers['Originator'], 'Codex Desktop')
+        ignored = u.auth_accounts({'files': [{'provider': 'codex', 'name': 'jwt.json', 'auth_index': 'jwt', 'id_token': jwt}]})
+        self.assertIsNone(ignored[0][1])
+        serialized = json.dumps(self.store.pool({'from': str(BASE), 'to': str(u.now_ms())}))
+        data = b''.join(path.read_bytes() for path in self.path.glob('usage.db*'))
+        for secret in (RAW, jwt, 'opaque-oauth-token-fixture', 'fixture-management', '$TOKEN$'):
+            self.assertNotIn(secret, serialized)
+            self.assertNotIn(secret.encode(), data)
+        self.assertEqual(self.store.pool({})['accounts'][0]['plan'], 'pro')
+
+    def test_pool_shape_inclusive_range_predecessor_stale_and_no_history_scan(self):
+        account = self.account()
+        account.update(observed_at=BASE, windows=[u.quota_window('five_hour', 1, None)])
+        writer = self.writer()
+        with patch.object(u, 'now_ms', return_value=BASE):
+            writer.save(account)
+        with writer.transaction():
+            for ts in (BASE+10, BASE+20, BASE+30):
+                writer.sample(account['key'], 'five_hour', ts, ts-BASE, None)
+        with patch.object(u, 'now_ms', return_value=BASE+900001):
+            latest = self.store.pool({})
+        self.assertNotIn('history', latest)
+        self.assertTrue(latest['accounts'][0]['stale'])
+        self.assertEqual(set(latest['accounts'][0]), {'key', 'provider', 'label', 'plan', 'via', 'auth_index',
+            'file_name', 'source', 'observed_at', 'stale', 'error', 'windows', 'banked_resets', 'limited_until'})
+        result = self.store.pool({'from': str(BASE+15), 'to': str(BASE+20)})
+        self.assertEqual([point[0] for point in result['history'][0]['points']], [BASE+10, BASE+20])
+        empty = self.store.pool({'from': str(BASE-2), 'to': str(BASE-1)})
+        self.assertEqual(empty['history'], [])
+        with self.assertRaises(ValueError):
+            self.store.pool({'from': '2', 'to': '1'})
+        statements = []
+        original = self.store.read
+        from contextlib import contextmanager
+        @contextmanager
+        def traced():
+            with original():
+                self.store.conn.set_trace_callback(statements.append)
+                yield
+        with patch.object(self.store, 'read', traced):
+            self.store.pool({})
+        self.assertFalse(any('quota_samples' in statement for statement in statements))
+
+    def test_banked_read_does_not_refresh_windows_or_clear_usage_error(self):
+        poller = self.poller()
+        account = self.account('codex')
+        account['observed_at'] = BASE
+        poller.remember(account)
+        poller.writer.outcome(account['key'], 'usage', 'gateway', TimeoutError(RAW))
+        poller.gateway.request.return_value = {'status_code': 200, 'body': '{"credits":[]}'}
+        with patch.object(u, 'now_ms', return_value=BASE+u.HOUR):
+            poller.gateway_read(account, True)
+            result = self.store.pool({})['accounts'][0]
+        self.assertTrue(result['stale'])
+        self.assertEqual(result['observed_at'], BASE)
+        self.assertEqual(result['banked_resets']['observed_at'], BASE+u.HOUR)
+        self.assertEqual(result['error'], 'timeout')
+
+    def test_quota_retention_cap_and_nonblocking_busy_writer(self):
+        writer = self.writer()
+        with writer.transaction():
+            writer.sample('seat', 'weekly', BASE-91*u.DAY, 1, None)
+            writer.sample('seat', 'weekly', BASE, 2, None)
+        self.assertEqual(self.store.prune(at=BASE, cap=10**10, free_floor=0), 1)
+        with self.store.transaction():
+            with self.assertRaises(sqlite3.OperationalError):
+                writer.save(self.account())
+        self.store.ingest([record()])
+        with patch.object(self.store, 'db_bytes', side_effect=[200, 50]), patch.object(self.store, 'disk_free', return_value=1000):
+            self.assertEqual(self.store.prune(at=BASE, cap=100, free_floor=0), 2)
+        self.assertEqual(writer.conn.execute('SELECT count(*) FROM quota_samples').fetchone()[0], 0)
+        with patch.object(self.store, 'can_pop', return_value=False):
+            with self.assertRaises(OSError):
+                writer.save(self.account())
+
+    def test_slow_quota_call_does_not_block_queue_drain(self):
+        import threading
+        entered, release = threading.Event(), threading.Event()
+        poller = self.poller()
+        account = self.account('codex')
+        poller.remember(account)
+        def slow(*args):
+            entered.set()
+            release.wait(2)
+            return {'status_code': 200, 'body': json.dumps({'rate_limit': {'primary_window': {
+                'limit_window_seconds': 18000, 'used_percent': 10}}})}
+        poller.gateway.request.side_effect = slow
+        failures = []
+        def run():
+            poller.writer = u.QuotaWriter(self.store)
+            try:
+                poller.gateway_read(account)
+            except Exception as error:
+                failures.append(error)
+            finally:
+                poller.writer.close()
+        thread = threading.Thread(target=run)
+        thread.start()
+        self.assertTrue(entered.wait(1))
+        self.store.ingest([record()])
+        self.assertEqual(self.store.health()['records_total'], 1)
+        release.set()
+        thread.join(2)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(failures, [])
+        self.assertEqual(self.store.pool({})['accounts'][0]['windows'][0]['used_percent'], 10)
+
+
+class ExportTests(unittest.TestCase):
+    def test_atomic_export_permissions_and_failed_copy_preserves_previous(self):
+        spec = importlib.util.spec_from_file_location('seat_export', ROOT.parent / 'seat-pacer-export/seat_pacer_export.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory(dir=ROOT) as temp:
+            source, target = Path(temp)/'source.json', Path(temp)/'history.json'
+            source.write_text('{"version":1}')
+            target.write_text('previous')
+            with patch.object(module.grp, 'getgrnam', return_value=SimpleNamespace(gr_gid=1234)), patch.object(module.os, 'fchown') as chown, patch.object(module.os, 'replace', wraps=module.os.replace) as rename:
+                module.export(source, target)
+                self.assertEqual(target.read_text(), '{"version":1}')
+                self.assertEqual(target.stat().st_mode & 0o777, 0o640)
+                self.assertEqual(target.parent.stat().st_mode & 0o777, 0o750)
+                self.assertEqual(chown.call_count, 2)
+                rename.assert_called_once()
+                with patch.object(module.shutil, 'copyfileobj', side_effect=OSError(RAW)):
+                    with self.assertRaises(OSError):
+                        module.export(source, target)
+                self.assertEqual(target.read_text(), '{"version":1}')
+                self.assertEqual(list(Path(temp).glob('.history-*')), [])
 
 
 class PricingTests(unittest.TestCase):
@@ -401,6 +786,40 @@ class PricingTests(unittest.TestCase):
 
 
 class TransportTests(unittest.TestCase):
+    def test_management_auth_guard_is_shared_across_workers(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as temp:
+            credential = Path(temp)/'key'
+            credential.write_text('fixture-management')
+            drain = u.Gateway(credential)
+            quota = u.Gateway(credential, drain.auth)
+            conn = unittest.mock.Mock()
+            conn.getresponse.return_value = SimpleNamespace(status=401)
+            with patch.object(u.http.client, 'HTTPConnection', return_value=conn) as connect:
+                for worker in (drain, quota, drain, quota):
+                    worker.retry_at = 0
+                    with self.assertRaises(u.AuthFailure):
+                        worker.get('/fixture')
+                drain.retry_at = 0
+                with self.assertRaises(u.AuthFailure):
+                    drain.get('/fixture')
+                self.assertEqual(connect.call_count, 4)
+            self.assertEqual(drain.auth.in_flight, 0)
+
+    def test_absolute_http_deadline_interrupts_closed_connection_response(self):
+        sock = unittest.mock.Mock()
+        conn = SimpleNamespace(sock=sock)
+        timer = unittest.mock.Mock()
+        with patch.object(u.threading, 'Timer', return_value=timer) as create:
+            with self.assertRaises(TimeoutError):
+                with u.absolute_http_deadline(conn) as watch:
+                    watch(conn.sock)
+                    # HTTPConnection hands ownership to an HTTP/1.0 response.
+                    conn.sock = None
+                    create.call_args.args[1]()
+            self.assertEqual(create.call_args.args[0], 50)
+            sock.shutdown.assert_called_once_with(u.socket.SHUT_RDWR)
+            timer.cancel.assert_called_once()
+
     def test_header_absolute_deadline_and_trickling(self):
         sock = unittest.mock.Mock()
         sock.recv.side_effect = [b'G', b'E', b'T']

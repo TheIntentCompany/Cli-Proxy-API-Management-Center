@@ -120,7 +120,8 @@
     "logs": "記錄檢視",
     "system_info": "中心資訊",
     "more": "更多",
-    "requests": "請求"
+    "requests": "請求",
+    "pool": "額度池"
   },
   "nav_groups": {
     "operate": "運行",
@@ -143,7 +144,8 @@
     "config_management": "閘道基礎設定",
     "system_info": "運行與診斷資訊",
     "more": "路由、日誌、設定、外掛",
-    "requests": "每個請求及其服務帳號"
+    "requests": "每個請求及其服務帳號",
+    "pool": "所有帳號額度合計"
   },
   "insights": {
     "via_codex_lb": "{{accounts}}（經由 codex-lb）",
@@ -264,7 +266,12 @@
     "reason_out_of_credits": "額度已用完。",
     "reset_action": "重設限額",
     "reset_hint": "使用一次儲備的重設來清除此帳號的限額。執行前會先確認。",
-    "reset_dialog_title": "重設用量限額"
+    "reset_dialog_title": "重設用量限額",
+    "updated": "更新於{{when}}",
+    "updated_stale": "上次讀取於{{when}}，正在重新整理",
+    "limited_until": "受限，{{when}}恢復",
+    "limited": "受限",
+    "fable_weekly": "Fable 每週額度"
   },
   "codex_lb": {
     "refreshed": "已透過 codex-lb 重新整理 {{name}}。",
@@ -2783,5 +2790,52 @@
     "usage_none": "此時間範圍內沒有請求",
     "read_limits": "讀取所有配額",
     "read_limits_hint": "向每個 Claude 和 Codex 帳號查詢目前配額。"
+  },
+  "pool": {
+    "title": "額度池",
+    "subtitle": "所有帳號的額度合計。收集器每隔幾分鐘讀取一次各帳號，因此會自動保持最新。",
+    "unreachable": "無法讀取額度：用量收集器沒有回應。",
+    "accounts_one": "{{count}} 個帳號",
+    "accounts_other": "{{count}} 個帳號",
+    "updated": "{{when}}更新",
+    "stale_count_one": "{{count}} 筆讀數已過期",
+    "stale_count_other": "{{count}} 筆讀數已過期",
+    "of_weekly": "剩餘，每週共 {{capacity}}%",
+    "of_fable": "剩餘，Fable 每週共 {{capacity}}%",
+    "card_fable": "Claude Fable",
+    "weight_note": "{{plan}} = {{weight}}x",
+    "explain_claude": "每個 Claude 帳號在每週額度未使用時計 100%。",
+    "explain_codex": "每個 Codex 帳號依方案中每個 Pro 200 計 100%；更大的方案計更多。",
+    "explain_unweighted": "有一個方案未知，因此每個帳號都按 100% 計。",
+    "now": "現在",
+    "chart_label": "{{name}} 額度池，已記錄與預測",
+    "recorded": "已記錄",
+    "projected": "依目前速率預測",
+    "no_history": "歷史記錄會隨著收集器讀取帳號逐步累積。",
+    "runs_out": "耗盡時間",
+    "rate_unknown": "歷史資料還不足以判斷",
+    "not_spending": "依目前速率不會耗盡",
+    "lasts": "未來 {{days}} 天內不會耗盡",
+    "burn": "根據過去 24 小時，每天消耗約 {{rate}}% 的額度池。",
+    "burn_hint": "根據過去 24 小時的讀數計算。",
+    "next_resets": "下次重置",
+    "no_resets": "未回報重置時間",
+    "limited_now": "目前受限",
+    "none_limited": "無",
+    "reopens": "{{when}}恢復",
+    "limited": "受限",
+    "limited_hint": "這些帳號在恢復前無法接收請求。",
+    "five_hour": "短期餘量",
+    "five_hour_value": "5 小時視窗剩餘 {{remaining}}%，共 {{capacity}}%",
+    "five_hour_hint": "只有 5 小時視窗仍有空間時，每週餘量才有用。",
+    "banked": "已存重置",
+    "banked_value_one": "{{count}} 個可用",
+    "banked_value_other": "{{count}} 個可用",
+    "banked_unknown": "尚未讀取",
+    "banked_expiry": "最早的{{when}}到期。請在帳號頁面使用。",
+    "banked_hint": "在帳號頁面使用一個，即可補滿帳號的額度。",
+    "strip_label": "額度池每週餘量",
+    "strip_value": "{{remaining}}%，共 {{capacity}}%",
+    "strip_link": "開啟額度池"
   }
 }

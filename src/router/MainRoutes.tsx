@@ -6,6 +6,7 @@ import { AuthFilesOAuthExcludedEditPage } from '@/pages/AuthFilesOAuthExcludedEd
 import { AuthFilesOAuthModelAliasEditPage } from '@/pages/AuthFilesOAuthModelAliasEditPage';
 import { OAuthPage } from '@/features/oauth/OAuthPage';
 import { RequestsPage } from '@/features/usage/RequestsPage';
+import { PoolPage } from '@/features/pool/PoolPage';
 import { RoutingPage } from '@/features/routing/RoutingPage';
 import { PluginResourcePage } from '@/features/plugins/PluginResourcePage';
 import { PluginsPage } from '@/features/plugins/PluginsPage';
@@ -30,6 +31,7 @@ const createMainRoutes = (supportsPlugin: boolean) => [
   { path: '/oauth', element: <OAuthPage /> },
   { path: '/routing', element: <RoutingPage /> },
   { path: '/requests', element: <RequestsPage /> },
+  { path: '/pool', element: <PoolPage /> },
   // Limits now live on each account row.
   { path: '/quota', element: <Navigate to="/auth-files" replace /> },
   ...(supportsPlugin

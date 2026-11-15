@@ -120,7 +120,8 @@
     "logs": "Logs",
     "system_info": "About",
     "more": "More",
-    "requests": "Requests"
+    "requests": "Requests",
+    "pool": "Pool"
   },
   "nav_groups": {
     "operate": "Operate",
@@ -143,7 +144,8 @@
     "config_management": "Gateway configuration",
     "system_info": "Runtime & diagnostics",
     "more": "Routing, logs, config, plugins",
-    "requests": "Every request and the account that served it"
+    "requests": "Every request and the account that served it",
+    "pool": "All accounts' limits added together"
   },
   "insights": {
     "via_codex_lb": "{{accounts}} via codex-lb",
@@ -264,7 +266,12 @@
     "reason_out_of_credits": "Out of credits.",
     "reset_action": "Reset limits",
     "reset_hint": "Spend one banked reset to clear this account's limits. Asks before it runs.",
-    "reset_dialog_title": "Reset usage limits"
+    "reset_dialog_title": "Reset usage limits",
+    "updated": "Updated {{when}}",
+    "updated_stale": "Last read {{when}}, refreshing",
+    "limited_until": "Limited, reopens {{when}}",
+    "limited": "Limited",
+    "fable_weekly": "Weekly Fable limit"
   },
   "codex_lb": {
     "refreshed": "Refreshed {{name}} through codex-lb.",
@@ -2756,5 +2763,52 @@
     "usage_none": "No requests in this range",
     "read_limits": "Read all limits",
     "read_limits_hint": "Ask each Claude and Codex account for its current limits."
+  },
+  "pool": {
+    "title": "Pool",
+    "subtitle": "Every account's limits added together. The collector reads each account every few minutes, so this stays current on its own.",
+    "unreachable": "Limit readings aren't available: the usage collector isn't answering.",
+    "accounts_one": "{{count}} account",
+    "accounts_other": "{{count}} accounts",
+    "updated": "Updated {{when}}",
+    "stale_count_one": "{{count}} reading is late",
+    "stale_count_other": "{{count}} readings are late",
+    "of_weekly": "of {{capacity}}% weekly left",
+    "of_fable": "of {{capacity}}% Fable weekly left",
+    "card_fable": "Claude Fable",
+    "weight_note": "{{plan}} = {{weight}}x",
+    "explain_claude": "Each Claude account adds 100% when its weekly limit is untouched.",
+    "explain_codex": "Each Codex account adds 100% per Pro 200 of plan; bigger plans add more.",
+    "explain_unweighted": "One plan is unknown, so every account counts as 100%.",
+    "now": "Now",
+    "chart_label": "{{name}} pooled limit, recorded and projected",
+    "recorded": "Recorded",
+    "projected": "Projected at the current rate",
+    "no_history": "History builds up as the collector reads accounts.",
+    "runs_out": "Runs out",
+    "rate_unknown": "Not enough history yet to tell",
+    "not_spending": "Not at the current rate",
+    "lasts": "Not within the next {{days}} days",
+    "burn": "Spending about {{rate}}% of the pool per day, from the last 24 hours.",
+    "burn_hint": "Worked out from the last 24 hours of readings.",
+    "next_resets": "Next resets",
+    "no_resets": "No reset times reported",
+    "limited_now": "Limited now",
+    "none_limited": "None",
+    "reopens": "reopens {{when}}",
+    "limited": "limited",
+    "limited_hint": "These accounts can't take requests until they reopen.",
+    "five_hour": "Short-term room",
+    "five_hour_value": "{{remaining}}% of {{capacity}}% left in the 5-hour windows",
+    "five_hour_hint": "Weekly room only helps if the 5-hour windows still have space.",
+    "banked": "Banked resets",
+    "banked_value_one": "{{count}} available",
+    "banked_value_other": "{{count}} available",
+    "banked_unknown": "Not read yet",
+    "banked_expiry": "Soonest expires {{when}}. Use them on the Accounts page.",
+    "banked_hint": "Spend one on the Accounts page to refill an account's limits.",
+    "strip_label": "Pooled weekly room",
+    "strip_value": "{{remaining}}% of {{capacity}}%",
+    "strip_link": "Open Pool"
   }
 }

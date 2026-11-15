@@ -27,7 +27,7 @@ import {
   normalizeProviderKey,
   supportsAuthFileManualRefresh,
 } from '@/features/authFiles/constants';
-import { QuotaRow } from '@/features/quota/components/QuotaRow';
+import { QuotaRow, type LiveLimits } from '@/features/quota/components/QuotaRow';
 import type { QuotaFileEntry } from '@/features/quota/logic';
 import type { QuotaCardState } from '@/features/quota/providers';
 import { AuthFileCooldownSection } from './AuthFileCooldownSection';
@@ -49,6 +49,8 @@ export interface AccountRowProps {
   manualRefreshing: Record<string, boolean>;
   cooldownResetting: Record<string, boolean>;
   usage?: ReactNode;
+  /** The usage collector's latest reading of this account's limits. */
+  live?: LiveLimits | null;
   onToggleSelect: (name: string) => void;
   onShowModels: (file: AuthFileItem) => void;
   onDownload: (name: string) => void;
@@ -182,6 +184,7 @@ export function AccountRow(props: AccountRowProps) {
       notices={notices}
       controls={controls}
       usage={props.usage}
+      live={props.live}
     />
   );
 }

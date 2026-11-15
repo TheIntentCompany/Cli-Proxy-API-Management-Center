@@ -17,6 +17,7 @@ import os
 import re
 import shutil
 import signal
+import socket
 import sqlite3
 import sys
 import threading
@@ -278,6 +279,19 @@ class Store:
         CREATE INDEX IF NOT EXISTS requests_account_time ON requests(account,ts);
         CREATE INDEX IF NOT EXISTS requests_model_time ON requests(model,ts);
         CREATE INDEX IF NOT EXISTS requests_key_time ON requests(key,ts);
+        CREATE TABLE IF NOT EXISTS quota_accounts (
+          key TEXT PRIMARY KEY, state TEXT NOT NULL) WITHOUT ROWID;
+        CREATE TABLE IF NOT EXISTS quota_samples (
+          key TEXT NOT NULL, kind TEXT NOT NULL, ts INTEGER NOT NULL,
+          used_percent REAL NOT NULL, resets_at INTEGER,
+          PRIMARY KEY(key,kind,ts)) WITHOUT ROWID;
+        CREATE INDEX IF NOT EXISTS quota_samples_time ON quota_samples(ts);
+        CREATE TABLE IF NOT EXISTS quota_import (
+          key TEXT NOT NULL, kind TEXT NOT NULL, ts INTEGER NOT NULL,
+          PRIMARY KEY(key,kind)) WITHOUT ROWID;
+        CREATE TABLE IF NOT EXISTS quota_errors (
+          key TEXT NOT NULL, operation TEXT NOT NULL, category TEXT NOT NULL,
+          ts INTEGER NOT NULL, PRIMARY KEY(key,operation)) WITHOUT ROWID;
         ''')
         columns = ','.join(f'{k} {"REAL" if k == "cost_usd" else "INTEGER"} NOT NULL' for k in ROLL_FIELDS)
         self.conn.execute(f'''CREATE TABLE IF NOT EXISTS hourly (
@@ -381,22 +395,29 @@ class Store:
         removed = 0
         with self.lock:
             cutoff = at - 90 * DAY
-            while True:
-                with self.transaction():
-                    cursor = self.conn.execute('DELETE FROM requests WHERE id IN (SELECT id FROM requests WHERE ts<? LIMIT 2000)', (cutoff,))
-                    count = cursor.rowcount
-                removed += count
-                if not count:
-                    break
+            for table in ('quota_samples', 'requests'):
+                while True:
+                    with self.transaction():
+                        identity = 'id' if table == 'requests' else '(key,kind,ts)'
+                        cursor = self.conn.execute(f'DELETE FROM {table} WHERE {identity} IN '
+                            f'(SELECT {"id" if table == "requests" else "key,kind,ts"} '
+                            f'FROM {table} WHERE ts<? LIMIT 2000)', (cutoff,))
+                        count = cursor.rowcount
+                    removed += count
+                    if not count:
+                        break
             self.reclaim()
             while self.db_bytes() + reserve > cap or self.disk_free() < free_floor + reserve:
-                oldest = self.conn.execute('SELECT min(ts) FROM requests').fetchone()[0]
+                oldest = self.conn.execute('SELECT min(ts) FROM (SELECT min(ts) ts FROM requests '
+                                           'UNION ALL SELECT min(ts) FROM quota_samples)').fetchone()[0]
                 if oldest is None:
                     break
                 end = (oldest // DAY + 1) * DAY
                 while True:
                     with self.transaction():
                         count = self.conn.execute('DELETE FROM requests WHERE id IN (SELECT id FROM requests WHERE ts<? LIMIT 2000)', (end,)).rowcount
+                        count += self.conn.execute('DELETE FROM quota_samples WHERE (key,kind,ts) IN '
+                            '(SELECT key,kind,ts FROM quota_samples WHERE ts<? LIMIT 2000)', (end,)).rowcount
                     removed += count
                     if not count:
                         break
@@ -428,7 +449,50 @@ class Store:
                     'last_drain_count': self.last_drain_count,
                     'records_total': int(self.meta('records_total', '0')), **self.coverage(),
                     'collector_started_at': self.started, 'db_bytes': self.db_bytes(),
-                    'disk_free_bytes': self.disk_free(), 'price_source': self.pricing.source}
+                    'disk_free_bytes': self.disk_free(), 'price_source': self.pricing.source,
+                    'last_quota_poll_at': json.loads(self.meta('last_quota_poll_at', 'null')),
+                    'quota_errors': json.loads(self.meta('quota_error_counts',
+                        '{"seat-pacer":0,"gateway":0,"codex-lb":0}'))}
+
+    def pool(self, params):
+        at = now_ms()
+        ranged = 'from' in params or 'to' in params
+        start = positive_int(params['from']) if 'from' in params else at - 90 * DAY
+        end = positive_int(params['to']) if 'to' in params else at
+        if ranged and start > end:
+            raise ValueError('invalid range')
+        with self.read():
+            accounts = []
+            for row in self.conn.execute('SELECT key,state FROM quota_accounts ORDER BY key'):
+                account = json.loads(row['state'])
+                observed = account['observed_at']
+                account['stale'] = observed is None or at - observed > 15 * 60_000
+                error = self.conn.execute('SELECT category FROM quota_errors WHERE key=? '
+                    'ORDER BY ts DESC LIMIT 1', (row['key'],)).fetchone()
+                if error is None:
+                    operations = ['lb-status'] if account['via'] == 'codex-lb' else ['discovery']
+                    if account['provider'] == 'claude':
+                        operations.append('seat-file')
+                    error = self.conn.execute('SELECT category FROM quota_errors WHERE key=? '
+                        f'AND operation IN ({",".join("?" for _ in operations)}) ORDER BY ts DESC LIMIT 1',
+                        ('', *operations)).fetchone()
+                account['error'] = error[0] if error else None
+                accounts.append(account)
+            result = {'generated_at': at, 'accounts': accounts}
+            if ranged:
+                history = []
+                # Indexed predecessor seeks keep the left edge of each step line.
+                for row in self.conn.execute('SELECT key,kind FROM quota_samples GROUP BY key,kind'):
+                    args = (row['key'], row['kind'])
+                    before = self.conn.execute('SELECT ts,used_percent,resets_at FROM quota_samples '
+                        'WHERE key=? AND kind=? AND ts<? ORDER BY ts DESC LIMIT 1', (*args, start)).fetchall()
+                    points = before + self.conn.execute('SELECT ts,used_percent,resets_at FROM quota_samples '
+                        'WHERE key=? AND kind=? AND ts>=? AND ts<=? ORDER BY ts', (*args, start, end)).fetchall()
+                    if points:
+                        history.append({'key': row['key'], 'kind': row['kind'],
+                                        'points': [list(point) for point in points]})
+                result['history'] = history
+            return result
 
     @contextmanager
     def read(self):
@@ -733,13 +797,17 @@ class LBReader:
         return imported
 
 
-def log_failure(stage, error):
-    # Only fixed categories and SQLite's symbolic error code, never response/exception text.
-    category = ('timeout' if isinstance(error, TimeoutError) else
+def error_category(error):
+    return ('timeout' if isinstance(error, TimeoutError) else
                 'sqlite_' + str(getattr(error, 'sqlite_errorname', 'ERROR')) if isinstance(error, sqlite3.Error) else
                 'authentication' if isinstance(error, AuthFailure) else
-                'invalid_data' if isinstance(error, (ValueError, TypeError)) else
+                'invalid_data' if isinstance(error, (ValueError, TypeError, KeyError, AttributeError)) else
                 'http_protocol' if isinstance(error, http.client.HTTPException) else 'io')
+
+
+def log_failure(stage, error):
+    # Only fixed categories and SQLite's symbolic error code, never response/exception text.
+    category = error_category(error)
     sys.stderr.write(f'failure stage={stage} category={category}\n')
 
 
@@ -747,54 +815,635 @@ class AuthFailure(Exception):
     pass
 
 
+@contextmanager
+def absolute_http_deadline(conn):
+    """Interrupt trickled headers as well as bodies at the absolute deadline."""
+    expired = threading.Event()
+    watched = [None]
+    def watch(sock):
+        watched[0] = sock
+    def interrupt():
+        expired.set()
+        sock = watched[0] if watched[0] is not None else conn.sock
+        if sock is not None:
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+    timer = threading.Timer(GATEWAY_DEADLINE, interrupt)
+    timer.daemon = True
+    timer.start()
+    try:
+        yield watch
+        if expired.is_set():
+            raise TimeoutError('HTTP absolute deadline')
+    except (OSError, http.client.HTTPException):
+        if expired.is_set():
+            raise TimeoutError('HTTP absolute deadline') from None
+        raise
+    finally:
+        timer.cancel()
+
+
+class ManagementAuth:
+    def __init__(self):
+        self.key, self.failures, self.retry_at, self.in_flight = '', 0, 0.0, 0
+        self.lock = threading.Lock()
+
+
 class Gateway:
     """Direct HTTP to a fixed loopback address. No redirects, proxies or URL inputs."""
-    def __init__(self, credential_path):
+    def __init__(self, credential_path, auth=None):
         self.credential_path = Path(credential_path)
-        self.key = ''
-        self.failures = 0
-        self.retry_at = 0.0
+        self.auth = auth or ManagementAuth()
+
+    @property
+    def key(self):
+        return self.auth.key
+
+    @property
+    def retry_at(self):
+        return self.auth.retry_at
+
+    @retry_at.setter
+    def retry_at(self, value):
+        self.auth.retry_at = value
 
     def get(self, path):
+        return self.request('GET', path)
+
+    def request(self, method, path, payload=None):
         key = self.credential_path.read_text().strip()
         if not key or '\n' in key or '\r' in key:
             raise ValueError('invalid credential')
-        if key != self.key:
-            self.key, self.failures, self.retry_at = key, 0, 0
-        # Four failures are enough to identify a bad credential. Refuse a fifth
-        # consecutive attempt until the credential changes or the process restarts.
-        if time.monotonic() < self.retry_at or self.failures >= 4:
-            raise AuthFailure()
+        # Share the ban guard with quota/maintenance workers, without serializing
+        # their network calls. Reserve in-flight slots so a fifth bad call cannot race.
+        with self.auth.lock:
+            if key != self.auth.key:
+                self.auth.key, self.auth.failures, self.auth.retry_at = key, 0, 0
+            if time.monotonic() < self.auth.retry_at or self.auth.failures + self.auth.in_flight >= 4:
+                raise AuthFailure()
+            self.auth.in_flight += 1
         deadline = time.monotonic() + GATEWAY_DEADLINE
         conn = http.client.HTTPConnection('127.0.0.1', 8317, timeout=GATEWAY_TIMEOUT)
         try:
-            conn.request('GET', path, headers={'Authorization': 'Bearer ' + key, 'Accept': 'application/json'})
-            response = conn.getresponse()
-            if response.status in {401, 403}:
-                self.failures += 1
-                self.retry_at = time.monotonic() + 60
-                raise AuthFailure()
-            if response.status != 200:
-                raise OSError('gateway unavailable')
-            self.failures = 0
-            # Bound both size and elapsed time. read1 yields after a socket read;
-            # read(n) may let a trickling peer keep the call alive indefinitely.
-            chunks, size = [], 0
-            while True:
-                if time.monotonic() >= deadline:
-                    raise TimeoutError('gateway response deadline')
-                if conn.sock is not None:
-                    conn.sock.settimeout(min(GATEWAY_TIMEOUT, max(.001, deadline - time.monotonic())))
-                chunk = response.read1(min(65536, MAX_BODY + 1 - size))
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                size += len(chunk)
-                if size > MAX_BODY:
-                    raise ValueError('gateway batch too large')
-            return json.loads(b''.join(chunks))
+            with absolute_http_deadline(conn) as watch:
+                return self._exchange(conn, method, path, payload, key, deadline, watch)
         finally:
             conn.close()
+            with self.auth.lock:
+                self.auth.in_flight -= 1
+
+    def _exchange(self, conn, method, path, payload, key, deadline, watch):
+        conn.request(method, path, body=json.dumps(payload) if payload is not None else None,
+                     headers={'Authorization': 'Bearer ' + key, 'Accept': 'application/json',
+                              'Content-Type': 'application/json'})
+        watch(conn.sock)
+        if conn.sock is not None:
+            conn.sock.settimeout(min(GATEWAY_TIMEOUT, max(.001, deadline - time.monotonic())))
+        response = conn.getresponse()
+        if response.status in {401, 403}:
+            with self.auth.lock:
+                self.auth.failures += 1
+                self.auth.retry_at = time.monotonic() + 60
+            raise AuthFailure()
+        if response.status != 200:
+            raise OSError('gateway unavailable')
+        with self.auth.lock:
+            self.auth.failures = 0
+        # Bound both size and elapsed time. read1 yields after a socket read;
+        # read(n) may let a trickling peer keep the call alive indefinitely.
+        chunks, size = [], 0
+        while True:
+            if time.monotonic() >= deadline:
+                raise TimeoutError('gateway response deadline')
+            if conn.sock is not None:
+                conn.sock.settimeout(min(GATEWAY_TIMEOUT, max(.001, deadline - time.monotonic())))
+            chunk = response.read1(min(65536, MAX_BODY + 1 - size))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+            if size > MAX_BODY:
+                raise ValueError('gateway batch too large')
+        return json.loads(b''.join(chunks))
+
+QUOTA_KINDS = {'five_hour': 300, 'weekly': 10080, 'fable': 10080, 'monthly': 43200}
+SEAT_KINDS = {'five_hour': 'five_hour', 'seven_day': 'weekly', 'weekly_scoped': 'fable'}
+CLAUDE_URL = 'https://api.anthropic.com/api/oauth/usage'
+CODEX_URL = 'https://chatgpt.com/backend-api/wham/'
+CLAUDE_HEADERS = {'Authorization': 'Bearer $TOKEN$', 'anthropic-beta': 'oauth-2025-04-20',
+                  'User-Agent': 'claude-cli/2.1.280 (external, cli)', 'Content-Type': 'application/json'}
+CODEX_HEADERS = {'Authorization': 'Bearer $TOKEN$', 'Content-Type': 'application/json',
+    'User-Agent': 'codex-tui/0.149.1 (Mac OS 26.5.2; arm64) iTerm.app/3.6.11 (codex-tui; 0.149.1)'}
+QUOTA_FAILURES = (OSError, ValueError, TypeError, KeyError, AttributeError, sqlite3.Error,
+                  http.client.HTTPException, AuthFailure)
+
+
+def quota_time(value):
+    """Upstream timestamps are RFC3339 or epoch seconds. Zero/year one mean absent."""
+    if value is None or value == '' or value == 0:
+        return None
+    if isinstance(value, str):
+        if value.startswith('0001-01-01'):
+            return None
+        return timestamp_ns(value) // 1_000_000
+    value = float(value)
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError('invalid quota time')
+    return int(value * 1000)
+
+
+def quota_percent(value):
+    value = float(value)
+    if not math.isfinite(value) or value < 0:
+        raise ValueError('invalid quota usage')
+    return value
+
+
+def quota_window(kind, used, resets, minutes=None):
+    return {'kind': kind, 'used_percent': quota_percent(used), 'resets_at': quota_time(resets),
+            'window_minutes': minutes if minutes is not None else QUOTA_KINDS[kind]}
+
+
+def duration_kind(seconds):
+    minutes = float(seconds) / 60
+    for kind in ('five_hour', 'weekly', 'monthly'):
+        if abs(minutes - QUOTA_KINDS[kind]) <= QUOTA_KINDS[kind] * .2:
+            return kind
+    return None
+
+
+def seat_reading(reading, seats, at):
+    windows = []
+    for window in reading['windows']:
+        kind = SEAT_KINDS.get(window['kind'])
+        if kind is None or (kind == 'fable' and window.get('scope', 'Fable').lower() != 'fable'):
+            continue
+        duration = window.get('duration', 0) / 60_000_000_000
+        windows.append(quota_window(kind, quota_percent(window['utilization']) * 100,
+                                    window.get('resets_at'), duration or QUOTA_KINDS[kind]))
+    locks = [quota_time(lock['to']) for seat in seats for lock in seat.get('locks', [])
+             if not lock.get('end') and quota_time(lock['from']) <= at and quota_time(lock['to']) > at]
+    observed = quota_time(reading['observed_at'])
+    if observed is None or not windows:
+        raise ValueError('missing seat reading')
+    return observed, windows, max(locks, default=None)
+
+
+def claude_windows(body):
+    windows = []
+    for field, kind in (('five_hour', 'five_hour'), ('seven_day', 'weekly')):
+        value = body.get(field)
+        if value is not None:
+            windows.append(quota_window(kind, value['utilization'], value.get('resets_at')))
+    for value in body.get('limits', []):
+        model = value.get('scope', {}).get('model', {}).get('display_name', '')
+        if value.get('kind') == 'weekly_scoped' and model.lower() in {'fable', 'fable 5'}:
+            windows.append(quota_window('fable', value['percent'], value.get('resets_at')))
+            break
+    if not windows:
+        raise ValueError('missing Claude windows')
+    return windows
+
+
+def codex_windows(body, at):
+    windows = []
+    for field in ('primary_window', 'secondary_window'):
+        value = body.get('rate_limit', {}).get(field)
+        if value is None:
+            continue
+        seconds = float(value['limit_window_seconds'])
+        kind = duration_kind(seconds)
+        if kind is None:
+            continue
+        reset = value.get('reset_at')
+        if reset is None and value.get('reset_after_seconds') is not None:
+            reset = at / 1000 + quota_percent(value['reset_after_seconds'])
+        windows.append(quota_window(kind, value['used_percent'], reset, seconds / 60))
+    if not windows:
+        raise ValueError('missing Codex windows')
+    return windows
+
+
+def banked_resets(provider, body, at):
+    if provider == 'claude':
+        grants = body['cedar_ember']['grants']
+        available, expires = 0, []
+        for grant in grants:
+            expiry = quota_time(grant.get('ends_at'))
+            left = number(grant['resets_left'])
+            if expiry is not None and expiry > at:
+                available += left
+                if left:
+                    expires.append(expiry)
+    else:
+        available, expires = 0, []
+        for credit in body['credits']:
+            expiry = quota_time(credit.get('expires_at'))
+            if credit.get('status') == 'available' and expiry is not None and expiry > at:
+                available += 1
+                expires.append(expiry)
+    return {'available': available, 'next_expires_at': min(expires, default=None), 'observed_at': at}
+
+
+def quota_text(value, secrets=()):
+    # Only allowlisted metadata crosses this boundary. Never serialize an auth object.
+    text = clean(value, secrets, 300)
+    return re.sub(r'(?:sk-[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)',
+                  '[redacted]', text)
+
+
+def quota_account(provider, identity, *, label='', plan=None, via='gateway', auth_index=None,
+                  file_name=None, secrets=()):
+    key = hashlib.sha256(f'{via}:{provider}:{identity}'.encode()).hexdigest()[:24]
+    return {'key': key, 'provider': provider, 'label': quota_text(label, secrets),
+            'plan': quota_text(plan, secrets) or None, 'via': via,
+            'auth_index': quota_text(auth_index, secrets) or None,
+            'file_name': quota_text(file_name, secrets) or None,
+            'source': 'codex-lb' if via == 'codex-lb' else 'gateway', 'observed_at': None,
+            'windows': [], 'banked_resets': None, 'limited_until': None}
+
+
+def auth_accounts(document, secrets=()):
+    result = []
+    for entry in document['files']:
+        provider = entry.get('provider')
+        if provider not in {'claude', 'codex'} or entry.get('disabled'):
+            continue
+        name, index = entry.get('name'), entry.get('auth_index')
+        if not isinstance(name, str) or not name or index is None:
+            continue
+        # CLIProxyAPI exposes claims as an object. A JWT string is deliberately ignored.
+        claims = entry.get('id_token')
+        claims = claims if isinstance(claims, dict) else {}
+        account = quota_account(provider, name, label=entry.get('email') or name,
+            plan=claims.get('chatgpt_plan_type') or claims.get('plan_type'),
+            auth_index=index, file_name=name, secrets=secrets)
+        account_id = claims.get('chatgpt_account_id')
+        result.append((account, quota_text(account_id, secrets) if account_id else None))
+    return result
+
+
+def lb_accounts(document, at, secrets=()):
+    accounts = {}
+    for group in document['keys']:
+        for value in group.get('accounts', []):
+            account = quota_account('codex', str(value['id']), via='codex-lb',
+                label=value.get('email') or value.get('alias') or value['id'],
+                plan=value.get('plan_type'), secrets=secrets)
+            account['_sample_times'] = {}
+            observed = []
+            for window in value.get('windows', []):
+                kind = window.get('kind')
+                if kind not in QUOTA_KINDS or window.get('used_percent') is None or window.get('stale'):
+                    continue
+                account['windows'].append(quota_window(kind, window['used_percent'],
+                    window.get('reset_at'), window.get('window_minutes')))
+                instant = quota_time(window.get('recorded_at'))
+                account['_sample_times'][kind] = instant
+                if instant is not None:
+                    observed.append(instant)
+            # generated_at measures service availability, never quota freshness.
+            account['observed_at'] = min(observed, default=None)
+            blocked = quota_time(value.get('blocked_until'))
+            account['limited_until'] = blocked if blocked is not None and blocked > at else None
+            count = value.get('reset_credits_available')
+            if count is not None:
+                account['banked_resets'] = {'available': number(count), 'next_expires_at': None,
+                    'observed_at': quota_time(value.get('details_recorded_at'))}
+            accounts[account['key']] = account
+    return list(accounts.values())
+
+
+class QuotaWriter:
+    """Quota thread owns this connection. No network call holds a write transaction.
+
+    History imports commit at most 100 rows at a time. A busy writer is retried on
+    the next tick rather than taking the queue worker's Python lock.
+    """
+    def __init__(self, store):
+        self.store = store
+        self.conn = sqlite3.connect(store.path, isolation_level=None, timeout=0)
+        self.conn.row_factory = sqlite3.Row
+        self.conn.execute('PRAGMA synchronous=FULL')
+        self.conn.execute('PRAGMA cache_size=-1024')
+
+    def close(self):
+        self.conn.close()
+
+    @contextmanager
+    def transaction(self):
+        if not self.store.can_pop():
+            raise OSError('quota storage reserve unavailable')
+        self.conn.execute('BEGIN IMMEDIATE')
+        try:
+            yield
+            self.conn.execute('COMMIT')
+        except BaseException:
+            self.conn.execute('ROLLBACK')
+            raise
+
+    def sample(self, key, kind, ts, used, resets):
+        row = self.conn.execute('SELECT ts,used_percent,resets_at FROM quota_samples '
+            'WHERE key=? AND kind=? ORDER BY ts DESC LIMIT 1', (key, kind)).fetchone()
+        if row is not None and (ts <= row['ts'] or
+                (used == row['used_percent'] and resets == row['resets_at'] and ts - row['ts'] < 30 * 60_000)):
+            return
+        self.conn.execute('INSERT OR IGNORE INTO quota_samples VALUES (?,?,?,?,?)', (key, kind, ts, used, resets))
+
+    def save(self, account):
+        public = {key: value for key, value in account.items() if not key.startswith('_')}
+        with self.transaction():
+            self.conn.execute('INSERT INTO quota_accounts VALUES (?,?) ON CONFLICT(key) '
+                'DO UPDATE SET state=excluded.state', (account['key'], json.dumps(public, allow_nan=False)))
+            ts = account['observed_at']
+            if ts is not None and ts >= now_ms() - 90 * DAY:
+                for window in account['windows']:
+                    observed = account.get('_sample_times', {}).get(window['kind'], ts)
+                    if observed is not None and observed >= now_ms() - 90 * DAY:
+                        self.sample(account['key'], window['kind'], observed,
+                                    window['used_percent'], window['resets_at'])
+
+    def import_seats(self, key, seats, at, stop=None):
+        for seat in seats:
+            kind = SEAT_KINDS.get(seat['kind'])
+            if kind is None:
+                continue
+            held = self.conn.execute('SELECT ts FROM quota_import WHERE key=? AND kind=?', (key, kind)).fetchone()
+            frontier = held[0] if held else -1
+            points = []
+            for cycle in seat.get('cycles', []):
+                reset = quota_time(cycle.get('resets_at'))
+                for ts, used in cycle.get('samples', []):
+                    ts = quota_time(ts)
+                    if ts is not None and ts > frontier and ts >= at - 90 * DAY:
+                        points.append((ts, quota_percent(used) * 100, reset))
+            points.sort()
+            for offset in range(0, len(points), 100):
+                if stop is not None and stop.is_set():
+                    return
+                batch = points[offset:offset + 100]
+                with self.transaction():
+                    # Imported samples predate a potentially newer gateway reading.
+                    # Their source cursor, rather than the latest reading, gates replay.
+                    self.conn.executemany('INSERT OR IGNORE INTO quota_samples VALUES (?,?,?,?,?)',
+                        ((key, kind, ts, used, reset) for ts, used, reset in batch))
+                    self.conn.execute('INSERT INTO quota_import VALUES (?,?,?) ON CONFLICT(key,kind) '
+                        'DO UPDATE SET ts=excluded.ts', (key, kind, batch[-1][0]))
+
+    def outcome(self, key, operation, source, error=None):
+        with self.transaction():
+            self.conn.execute('DELETE FROM quota_errors WHERE key=? AND operation=?', (key, operation))
+            if error is not None:
+                self.conn.execute('INSERT INTO quota_errors VALUES (?,?,?,?)',
+                    (key, operation, error_category(error), now_ms()))
+                row = self.conn.execute("SELECT value FROM meta WHERE key='quota_error_counts'").fetchone()
+                counts = json.loads(row[0]) if row else {'seat-pacer': 0, 'gateway': 0, 'codex-lb': 0}
+                counts[source] += 1
+                self.meta('quota_error_counts', json.dumps(counts))
+
+    def meta(self, key, value):
+        self.conn.execute('INSERT INTO meta VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
+                          (key, str(value)))
+
+
+class QuotaPoller:
+    def __init__(self, store, gateway, stop, seat_path='/var/lib/intent-seat-pacer/history.json'):
+        self.store, self.gateway, self.stop = store, gateway, stop
+        self.seat_path = Path(seat_path)
+        self.accounts, self.account_ids, self.schedule = {}, {}, {}
+        self.seat_times, self.seat_available, self.seat_locks = {}, False, {}
+        self.polled = False
+        self.writer = None
+
+    def due(self, key, operation, clock):
+        return clock >= self.schedule.get((key, operation), (0, 0))[0]
+
+    def attempt(self, key, operation, source, interval, clock, action):
+        if not self.due(key, operation, clock):
+            return False
+        self.polled = True
+        failures = self.schedule.get((key, operation), (0, 0))[1]
+        try:
+            action()
+        except QUOTA_FAILURES as error:
+            failures += 1
+            self.schedule[key, operation] = (time.monotonic() + min(3600, 300 * 2 ** min(failures - 1, 4)), failures)
+            log_failure('quota_' + source, error)
+            self.writer.outcome(key, operation, source, error)
+            return False
+        self.schedule[key, operation] = (time.monotonic() + interval, 0)
+        self.writer.outcome(key, operation, source)
+        return True
+
+    def remember(self, account):
+        held = self.accounts.get(account['key'])
+        if held:
+            # Discovery changes metadata only; never erase an observed snapshot.
+            for field in ('source', 'observed_at', 'windows', 'banked_resets', 'limited_until'):
+                account[field] = held[field]
+        self.writer.save(account)
+        self.accounts[account['key']] = account
+        return account
+
+    def discover(self):
+        discovered = auth_accounts(self.gateway.get('/v0/management/auth-files'), (self.gateway.key,))
+        active = set()
+        for account, ident in discovered:
+            self.remember(account)
+            self.account_ids[account['key']] = ident
+            active.add(account['key'])
+        self.active = active
+        # Retain history for removed/disabled routes, but omit them from latest state.
+        for key, account in list(self.accounts.items()):
+            if account['via'] == 'gateway' and account['provider'] == 'codex' and key not in active:
+                with self.writer.transaction():
+                    self.writer.conn.execute('DELETE FROM quota_accounts WHERE key=?', (key,))
+                del self.accounts[key]
+
+    def read_seats(self, at, clock):
+        self.seat_available = False
+        with self.seat_path.open('rb') as source:
+            raw = source.read(MAX_BODY + 1)
+        if len(raw) > MAX_BODY:
+            raise ValueError('seat history too large')
+        document = json.loads(raw)
+        if document['version'] != 1:
+            raise ValueError('unsupported seat history')
+        self.seat_available = True
+        for name in document['readings'].keys() | document.get('seats', {}).keys():
+            if self.stop.is_set():
+                break
+            account = quota_account('claude', name, label=seat_label(name), file_name=name,
+                                    secrets=(self.gateway.key,))
+            account = self.remember(account) if account['key'] not in self.accounts else self.accounts[account['key']]
+            def update():
+                seats = document.get('seats', {}).get(name, [])
+                self.writer.import_seats(account['key'], seats, at, self.stop)
+                reading = document['readings'].get(name)
+                if reading is None:
+                    self.seat_times.pop(account['key'], None)
+                    return
+                observed, windows, limited = seat_reading(reading, seats, at)
+                self.seat_times[account['key']] = observed
+                self.seat_locks[account['key']] = limited
+                if at - observed <= 15 * 60_000:
+                    self.writer.outcome(account['key'], 'usage', 'gateway')
+                if account['observed_at'] is None or observed >= account['observed_at']:
+                    updated = {**account, 'source': 'seat-pacer', 'observed_at': observed,
+                               'windows': windows, 'limited_until': limited}
+                    self.writer.save(updated)
+                    self.accounts[account['key']] = updated
+                elif limited is not None and limited > (account['limited_until'] or 0):
+                    updated = {**account, 'limited_until': limited}
+                    self.writer.save(updated)
+                    self.accounts[account['key']] = updated
+            self.attempt(account['key'], 'seat-pacer', 'seat-pacer', 120, clock, update)
+        present = {quota_account('claude', name)['key'] for name in document['readings']}
+        self.seat_times = {key: value for key, value in self.seat_times.items() if key in present}
+
+    def api_call(self, account, bank=False):
+        provider = account['provider']
+        headers = dict(CLAUDE_HEADERS if provider == 'claude' else CODEX_HEADERS)
+        if provider == 'claude':
+            url = CLAUDE_URL + ('?cedar_ember=1&skip_spend=1' if bank else '')
+        else:
+            url = CODEX_URL + ('rate-limit-reset-credits' if bank else 'usage')
+            ident = self.account_ids.get(account['key'])
+            if ident:
+                headers['Chatgpt-Account-Id'] = ident
+            if bank:
+                headers.update({'OpenAI-Beta': 'codex-1', 'Originator': 'Codex Desktop'})
+        response = self.gateway.request('POST', '/v0/management/api-call',
+            {'auth_index': account['auth_index'], 'method': 'GET', 'url': url, 'header': headers})
+        status = response['status_code']
+        if status in {401, 403}:
+            raise AuthFailure()
+        if not 200 <= status < 300:
+            raise OSError('quota upstream unavailable')
+        body = json.loads(response['body'])
+        if not isinstance(body, dict):
+            raise ValueError('invalid quota body')
+        return body
+
+    def gateway_read(self, account, bank=False):
+        body = self.api_call(account, bank)
+        at = now_ms()
+        # A bank read and a quota read have independent freshness and errors.
+        updated = dict(self.accounts[account['key']])
+        if bank:
+            updated['banked_resets'] = banked_resets(account['provider'], body, at)
+        else:
+            windows = claude_windows(body) if account['provider'] == 'claude' else codex_windows(body, at)
+            updated.update(source='gateway', observed_at=at, windows=windows)
+            if account['provider'] == 'codex' and body.get('plan_type'):
+                updated['plan'] = quota_text(body['plan_type'], (self.gateway.key,))
+            limited = [w['resets_at'] for w in windows if w['used_percent'] >= 100 and w['resets_at'] is not None]
+            updated['limited_until'] = max(limited, default=None)
+            lock = self.seat_locks.get(account['key'])
+            if lock is not None and lock > at:
+                updated['limited_until'] = max(lock, updated['limited_until'] or 0)
+        self.writer.save(updated)
+        self.accounts[account['key']] = updated
+
+    def read_lb(self, at):
+        document = loopback_json(8335, '/v1/accounts')
+        values = {str(value['id']): value for group in document['keys'] for value in group.get('accounts', [])}
+        active = set()
+        for identity, value in values.items():
+            key = quota_account('codex', identity, via='codex-lb')['key']
+            active.add(key)
+            if key not in self.accounts:
+                self.remember(quota_account('codex', identity, via='codex-lb',
+                    label=value.get('email') or value.get('alias') or identity, plan=value.get('plan_type'),
+                    secrets=(self.gateway.key,)))
+            def update():
+                account = lb_accounts({'keys': [{'accounts': [value]}]}, at, (self.gateway.key,))[0]
+                self.writer.save(account)
+                self.accounts[account['key']] = account
+            self.attempt(key, 'lb-account', 'codex-lb', 120, time.monotonic(), update)
+        for key, account in list(self.accounts.items()):
+            if account['via'] == 'codex-lb' and key not in active:
+                with self.writer.transaction():
+                    self.writer.conn.execute('DELETE FROM quota_accounts WHERE key=?', (key,))
+                del self.accounts[key]
+
+    def tick(self):
+        self.polled = False
+        clock, at = time.monotonic(), now_ms()
+        if self.stop.is_set():
+            return
+        self.attempt('', 'discovery', 'gateway', 900, clock, self.discover)
+        if self.stop.is_set():
+            return
+        self.attempt('', 'seat-file', 'seat-pacer', 120, clock, lambda: self.read_seats(at, clock))
+        if self.stop.is_set():
+            return
+        self.attempt('', 'lb-status', 'codex-lb', 120, clock, lambda: self.read_lb(at))
+        for key in list(getattr(self, 'active', ())):
+            if self.stop.is_set():
+                break
+            account = self.accounts[key]
+            observed = self.seat_times.get(key)
+            if (account['provider'] == 'codex' or not self.seat_available
+                    or observed is None or at - observed > 15 * 60_000):
+                self.attempt(key, 'usage', 'gateway', 240 if account['provider'] == 'codex' else 300,
+                             clock, lambda: self.gateway_read(account))
+            if self.stop.is_set():
+                break
+            self.attempt(key, 'bank', 'gateway', 1800, clock, lambda: self.gateway_read(account, True))
+        if self.polled:
+            with self.writer.transaction():
+                self.writer.meta('last_quota_poll_at', now_ms())
+
+    def run(self):
+        self.writer = QuotaWriter(self.store)
+        try:
+            self.accounts = {row['key']: json.loads(row['state']) for row in
+                             self.writer.conn.execute('SELECT key,state FROM quota_accounts')}
+            while not self.stop.is_set():
+                try:
+                    self.tick()
+                except QUOTA_FAILURES as error:
+                    log_failure('quota_storage', error)
+                self.stop.wait(5)
+        finally:
+            self.writer.close()
+
+
+def seat_label(name):
+    match = re.fullmatch(r'claude-[^-]+-(.+@.+)\.json', name)
+    return match[1] if match else name.removesuffix('.json')
+
+
+def loopback_json(port, path):
+    """Fixed read-only status transport, bounded like management reads."""
+    deadline = time.monotonic() + GATEWAY_DEADLINE
+    conn = http.client.HTTPConnection('127.0.0.1', port, timeout=GATEWAY_TIMEOUT)
+    try:
+        with absolute_http_deadline(conn) as watch:
+            conn.request('GET', path, headers={'Accept': 'application/json'})
+            watch(conn.sock)
+            response = conn.getresponse()
+            if response.status != 200:
+                raise OSError('status unavailable')
+            chunks, size = [], 0
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError('status deadline')
+                if conn.sock is not None:
+                    conn.sock.settimeout(min(GATEWAY_TIMEOUT, remaining))
+                chunk = response.read1(min(65536, MAX_BODY + 1 - size))
+                if not chunk:
+                    return json.loads(b''.join(chunks))
+                size += len(chunk)
+                if size > MAX_BODY:
+                    raise ValueError('status too large')
+                chunks.append(chunk)
+    finally:
+        conn.close()
 
 
 class Collector:
@@ -845,7 +1494,7 @@ class Collector:
         # This worker never pops the queue. A slow config read cannot delay draining.
         if time.monotonic() >= self.next_routes:
             try:
-                document = Gateway(self.gateway.credential_path).get('/v0/management/codex-api-key')
+                document = Gateway(self.gateway.credential_path, getattr(self.gateway, 'auth', None)).get('/v0/management/codex-api-key')
                 routes = self.lb.resolve_routes(document)
                 with self.store.transaction():
                     self.store.set_meta('routes', json.dumps(routes, separators=(',', ':')))
@@ -988,6 +1637,8 @@ class Handler(BaseHTTPRequestHandler):
                 result = self.server.store.health()
             elif url.path == '/v1/summary':
                 result = self.server.store.summary(params)
+            elif url.path == '/v1/pool':
+                result = self.server.store.pool(params)
             elif url.path == '/v1/requests':
                 result = self.server.store.requests(params)
             elif re.fullmatch(r'/v1/requests/[0-9]+', url.path):
@@ -1051,6 +1702,7 @@ def main():
         pricing = Pricing(json.load(source))
     store = Store(state / 'usage.db', pricing)
     collector = Collector(store, LBReader('/var/lib/intent-lb/codex/store.db'), Gateway(credential))
+    quotas = QuotaPoller(store, Gateway(credential, collector.gateway.auth), collector.stop)
     server = Server((HOST, PORT), Handler)
     server.store = store
     # serve_forever runs on main; shutdown must be invoked from another thread.
@@ -1060,7 +1712,9 @@ def main():
     signal.signal(signal.SIGTERM, shutdown)
     signal.signal(signal.SIGINT, shutdown)
     worker = threading.Thread(target=collector.run, name='collector', daemon=True)
+    quota_worker = threading.Thread(target=quotas.run, name='quota-poller', daemon=True)
     worker.start()
+    quota_worker.start()
     try:
         server.serve_forever(poll_interval=.5)
     finally:
@@ -1071,6 +1725,7 @@ def main():
         # stop timeout. Closing its connection underneath it would lose the batch.
         if worker.is_alive():
             worker.join()
+        quota_worker.join(timeout=55)
         store.close()
 
 

@@ -1,0 +1,79 @@
+{
+  "generated_at": 1794614400000,
+  "accounts": [
+    {
+      "key": "5c34541f7bb4b6044e1af521",
+      "provider": "claude",
+      "label": "seat@example.invalid",
+      "plan": "max",
+      "via": "gateway",
+      "auth_index": "synthetic-auth-index",
+      "file_name": "claude-fixture-seat@example.invalid.json",
+      "source": "seat-pacer",
+      "observed_at": 1794614400000,
+      "windows": [
+        {
+          "kind": "five_hour",
+          "used_percent": 42.0,
+          "resets_at": 1794632400000,
+          "window_minutes": 300
+        },
+        {
+          "kind": "weekly",
+          "used_percent": 68.0,
+          "resets_at": 1795219200000,
+          "window_minutes": 10080
+        },
+        {
+          "kind": "fable",
+          "used_percent": 19.0,
+          "resets_at": null,
+          "window_minutes": 10080
+        }
+      ],
+      "banked_resets": {
+        "available": 2,
+        "next_expires_at": 1794700800000,
+        "observed_at": 1794614400000
+      },
+      "limited_until": null,
+      "stale": false,
+      "error": null
+    }
+  ],
+  "history": [
+    {
+      "key": "5c34541f7bb4b6044e1af521",
+      "kind": "fable",
+      "points": [
+        [
+          1794614400000,
+          19.0,
+          null
+        ]
+      ]
+    },
+    {
+      "key": "5c34541f7bb4b6044e1af521",
+      "kind": "five_hour",
+      "points": [
+        [
+          1794614400000,
+          42.0,
+          1794632400000
+        ]
+      ]
+    },
+    {
+      "key": "5c34541f7bb4b6044e1af521",
+      "kind": "weekly",
+      "points": [
+        [
+          1794614400000,
+          68.0,
+          1795219200000
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+[Unit]
+Description=Export Seat Pacer quota history every two minutes
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=2min
+AccuracySec=1s
+Unit=intent-seat-pacer-export.service
+
+[Install]
+WantedBy=timers.target

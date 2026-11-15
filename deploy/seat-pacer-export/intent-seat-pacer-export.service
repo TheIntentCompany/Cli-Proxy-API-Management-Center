@@ -1,0 +1,40 @@
+[Unit]
+Description=Export Seat Pacer quota history for the usage collector
+
+[Service]
+Type=oneshot
+User=root
+Group=ubuntu
+ExecStart=/usr/bin/python3 -I /opt/intent-seat-pacer-export/seat_pacer_export.py
+StateDirectory=intent-seat-pacer
+StateDirectoryMode=0750
+TimeoutStartSec=50
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_READ_SEARCH
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/var/lib/cliproxy/.cli-proxy-api/plugins/claude-seat-pacer
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# fchown sets the exported group; the capability set bounds privileged calls.
+SystemCallFilter=~@resources
+RestrictAddressFamilies=AF_UNIX
+UMask=0077
+MemoryMax=64M
+TasksMax=4
+CPUQuota=5%

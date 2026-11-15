@@ -26,6 +26,7 @@ import {
   IconSidebarPlugins,
   IconSidebarProviders,
   IconSidebarQuickStart,
+  IconSidebarQuota,
   IconSidebarRouting,
   IconSidebarStore,
   IconSidebarSystem,
@@ -60,6 +61,7 @@ const sidebarIcons: Record<string, ReactNode> = {
   authFiles: <IconSidebarAuthFiles size={18} />,
   oauth: <IconSidebarOauth size={18} />,
   requests: <IconSidebarLogs size={18} />,
+  pool: <IconSidebarQuota size={18} />,
   routing: <IconSidebarRouting size={18} />,
   plugins: <IconSidebarPlugins size={18} />,
   pluginStore: <IconSidebarStore size={18} />,
@@ -651,6 +653,12 @@ export function MainLayout() {
           labelKey: 'nav.dashboard',
           metaKey: 'nav_meta.dashboard',
           icon: sidebarIcons.dashboard,
+        },
+        {
+          path: '/pool',
+          labelKey: 'nav.pool',
+          metaKey: 'nav_meta.pool',
+          icon: sidebarIcons.pool,
         },
         {
           path: '/auth-files',

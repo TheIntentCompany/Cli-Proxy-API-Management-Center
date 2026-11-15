@@ -61,7 +61,38 @@ export interface QuotaRowProps {
   controls?: ReactNode;
   /** Requests, tokens and cost in the chosen range, from the usage collector. */
   usage?: ReactNode;
+  /** Limits the usage collector read on its own; newer than the panel's read wins. */
+  live?: LiveLimits | null;
 }
+
+/** One window from the usage collector's own reading of this account. */
+export interface LiveWindow {
+  usedPercent: number;
+  resetsAtMs: number | null;
+}
+
+/**
+ * The usage collector reads every account every few minutes, so these readings stay
+ * current without anyone pressing Refresh quota.
+ */
+export interface LiveLimits {
+  observedAtMs: number | null;
+  stale: boolean;
+  fiveHour: LiveWindow | null;
+  weekly: LiveWindow | null;
+  fable: LiveWindow | null;
+  limitedUntilMs: number | null;
+}
+
+// When this tab last saw each quota reading arrive, so the newer of the panel's own read
+// and the collector's reading wins. Keyed by the reading object, which changes per read.
+const readSeenAt = new WeakMap<object, number>();
+const seenAt = (reading: object, now: number) => {
+  const known = readSeenAt.get(reading);
+  if (known !== undefined) return known;
+  readSeenAt.set(reading, now);
+  return now;
+};
 
 const COLOR = {
   claude: 'var(--viz-claude)',
@@ -107,6 +138,7 @@ export function QuotaRow({
   notices,
   controls,
   usage,
+  live = null,
 }: QuotaRowProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
@@ -155,8 +187,36 @@ export function QuotaRow({
       : null;
   const fiveHourWindow = windows.find((window) => window.id === 'five-hour');
   const weeklyWindow = windows.find((window) => window.id === WEEKLY_ID[family]);
-  const fiveHour = fromWindow(fiveHourWindow) ?? headers.fiveHour;
-  const weekly = fromWindow(weeklyWindow) ?? headers.weekly;
+  const storeReadAt = quota && status === 'success' ? seenAt(quota, now) : null;
+  const preferLive =
+    live !== null &&
+    live.observedAtMs !== null &&
+    (storeReadAt === null || live.observedAtMs >= storeReadAt - 60_000);
+  const fromLive = (window: LiveWindow | null): LimitReading | null =>
+    window
+      ? {
+          usedPercent:
+            window.resetsAtMs !== null && window.resetsAtMs <= now ? 0 : window.usedPercent,
+          resetAtMs: window.resetsAtMs,
+          source: 'usage',
+          observedAtMs: live?.observedAtMs ?? null,
+        }
+      : null;
+  const fiveHour =
+    (preferLive ? fromLive(live.fiveHour) : null) ?? fromWindow(fiveHourWindow) ?? headers.fiveHour;
+  const weekly =
+    (preferLive ? fromLive(live.weekly) : null) ?? fromWindow(weeklyWindow) ?? headers.weekly;
+  const liveFable = preferLive ? fromLive(live.fable) : null;
+  // Limited: a spent 5-hour or weekly window, or the router holding the account back.
+  const limitedUntil = (() => {
+    const spent = [fiveHour, weekly].filter(
+      (reading): reading is LimitReading => reading !== null && reading.usedPercent >= 100
+    );
+    const lock = live?.limitedUntilMs && live.limitedUntilMs > now ? live.limitedUntilMs : null;
+    if (spent.length === 0 && lock === null) return null;
+    return Math.max(lock ?? 0, ...spent.map((reading) => reading.resetAtMs ?? 0)) || -1;
+  })();
+  const updatedAt = Math.max(preferLive ? (live?.observedAtMs ?? 0) : 0, storeReadAt ?? 0);
   const otherWindows = windows.filter(
     (window) => window !== fiveHourWindow && window !== weeklyWindow
   );
@@ -190,13 +250,17 @@ export function QuotaRow({
   const headerSeenAt = headers.weekly?.observedAtMs ?? headers.fiveHour?.observedAtMs ?? null;
   const statusLine = loading
     ? t('limits.reading')
-    : status === 'idle' && headerSeenAt
-      ? t('limits.from_headers', { when: formatRelative(headerSeenAt, now, locale) })
-      : claudeQuota?.stale && claudeQuota.observedAt
-        ? t('limits.stale', {
-            time: formatShortDateTime(Date.parse(claudeQuota.observedAt), locale),
-          })
-        : null;
+    : updatedAt > 0
+      ? live?.stale && preferLive
+        ? t('limits.updated_stale', { when: formatRelative(updatedAt, now, locale) })
+        : t('limits.updated', { when: formatRelative(updatedAt, now, locale) })
+      : status === 'idle' && headerSeenAt
+        ? t('limits.from_headers', { when: formatRelative(headerSeenAt, now, locale) })
+        : claudeQuota?.stale && claudeQuota.observedAt
+          ? t('limits.stale', {
+              time: formatShortDateTime(Date.parse(claudeQuota.observedAt), locale),
+            })
+          : null;
 
   /* ---------- details: everything the stock card body showed ---------- */
 
@@ -436,6 +500,16 @@ export function QuotaRow({
             <span>{t(`limits.family_${family}`)}</span>
             {planLabel && <Badge variant="outline">{planLabel}</Badge>}
             {file.disabled && <Badge>{t('limits.disabled')}</Badge>}
+            {limitedUntil !== null && !file.disabled && (
+              <Badge
+                variant="warning"
+                title={limitedUntil > 0 ? formatShortDateTime(limitedUntil, locale) : undefined}
+              >
+                {limitedUntil > 0
+                  ? t('limits.limited_until', { when: formatRelative(limitedUntil, now, locale) })
+                  : t('limits.limited')}
+              </Badge>
+            )}
           </span>
           {statusLine && <span className={styles.status}>{statusLine}</span>}
           {usage && <span className={styles.usage}>{usage}</span>}
@@ -465,7 +539,22 @@ export function QuotaRow({
         />
       </div>
       <div className={styles.others}>
-        {otherWindows.length === 0 ? (
+        {liveFable && (otherWindows.length === 0 || preferLive) ? (
+          <LimitMeter
+            label={t('limits.fable_weekly')}
+            usedPercent={liveFable.usedPercent}
+            color={COLOR[family]}
+            detail={
+              liveFable.resetAtMs
+                ? t('limits.resets_short', {
+                    when: formatRelative(liveFable.resetAtMs, now, locale),
+                  })
+                : undefined
+            }
+            emptyText={t('limits.not_reported')}
+            warningText={t('limits.near_limit')}
+          />
+        ) : otherWindows.length === 0 ? (
           <span className={styles.none}>{hasReading ? t('limits.no_model_limits') : ''}</span>
         ) : (
           otherWindows.map((window) => (

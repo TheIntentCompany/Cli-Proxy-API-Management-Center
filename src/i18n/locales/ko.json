@@ -120,7 +120,8 @@
     "logs": "로그 뷰어",
     "system_info": "관리 센터 정보",
     "more": "더 보기",
-    "requests": "요청"
+    "requests": "요청",
+    "pool": "풀"
   },
   "nav_groups": {
     "operate": "운영",
@@ -143,7 +144,8 @@
     "config_management": "게이트웨이 설정",
     "system_info": "런타임 및 진단",
     "more": "라우팅, 로그, 설정, 플러그인",
-    "requests": "모든 요청과 처리한 계정"
+    "requests": "모든 요청과 처리한 계정",
+    "pool": "모든 계정의 한도 합계"
   },
   "insights": {
     "via_codex_lb": "{{accounts}} (codex-lb 경유)",
@@ -264,7 +266,12 @@
     "reason_out_of_credits": "크레딧이 소진되었습니다.",
     "reset_action": "한도 초기화",
     "reset_hint": "적립된 초기화 1회를 사용해 이 계정의 한도를 해제합니다. 실행 전에 확인합니다.",
-    "reset_dialog_title": "사용 한도 초기화"
+    "reset_dialog_title": "사용 한도 초기화",
+    "updated": "{{when}} 업데이트됨",
+    "updated_stale": "{{when}} 마지막으로 읽음, 새로고침 중",
+    "limited_until": "제한됨, {{when}} 재개",
+    "limited": "제한됨",
+    "fable_weekly": "Fable 주간 한도"
   },
   "codex_lb": {
     "refreshed": "codex-lb를 통해 {{name}}을(를) 새로고침했습니다.",
@@ -2756,5 +2763,52 @@
     "usage_none": "이 기간에는 요청이 없습니다",
     "read_limits": "모든 한도 읽기",
     "read_limits_hint": "각 Claude 및 Codex 계정에 현재 한도를 요청합니다."
+  },
+  "pool": {
+    "title": "풀",
+    "subtitle": "모든 계정의 한도 합계입니다. 수집기가 몇 분마다 각 계정을 읽으므로 알아서 최신 상태를 유지합니다.",
+    "unreachable": "한도를 읽을 수 없습니다. 사용량 수집기가 응답하지 않습니다.",
+    "accounts_one": "계정 {{count}}개",
+    "accounts_other": "계정 {{count}}개",
+    "updated": "{{when}} 업데이트",
+    "stale_count_one": "{{count}}건의 읽기가 늦어지고 있습니다",
+    "stale_count_other": "{{count}}건의 읽기가 늦어지고 있습니다",
+    "of_weekly": "주간 {{capacity}}% 중 남음",
+    "of_fable": "Fable 주간 {{capacity}}% 중 남음",
+    "card_fable": "Claude Fable",
+    "weight_note": "{{plan}} = {{weight}}x",
+    "explain_claude": "Claude 계정은 주간 한도를 전혀 쓰지 않았을 때 하나당 100%를 더합니다.",
+    "explain_codex": "Codex 계정은 요금제의 Pro 200 하나당 100%를 더하며, 더 큰 요금제는 더 많이 더합니다.",
+    "explain_unweighted": "알 수 없는 요금제가 하나 있어 모든 계정을 100%로 계산합니다.",
+    "now": "지금",
+    "chart_label": "{{name}} 풀 한도, 기록 및 예측",
+    "recorded": "기록",
+    "projected": "현재 속도 기준 예측",
+    "no_history": "수집기가 계정을 읽는 만큼 기록이 쌓입니다.",
+    "runs_out": "소진 시점",
+    "rate_unknown": "판단하기에는 기록이 아직 부족합니다",
+    "not_spending": "현재 속도로는 소진되지 않음",
+    "lasts": "향후 {{days}}일 내에는 소진되지 않음",
+    "burn": "최근 24시간 기준 하루에 풀의 약 {{rate}}%를 사용 중입니다.",
+    "burn_hint": "최근 24시간 읽기로 계산했습니다.",
+    "next_resets": "다음 초기화",
+    "no_resets": "보고된 초기화 시간 없음",
+    "limited_now": "현재 제한됨",
+    "none_limited": "없음",
+    "reopens": "{{when}} 재개",
+    "limited": "제한됨",
+    "limited_hint": "이 계정들은 다시 열릴 때까지 요청을 받을 수 없습니다.",
+    "five_hour": "단기 여유",
+    "five_hour_value": "5시간 구간에서 {{capacity}}% 중 {{remaining}}% 남음",
+    "five_hour_hint": "5시간 구간에 여유가 있어야 주간 여유가 도움이 됩니다.",
+    "banked": "보관된 초기화",
+    "banked_value_one": "{{count}}개 사용 가능",
+    "banked_value_other": "{{count}}개 사용 가능",
+    "banked_unknown": "아직 읽지 않음",
+    "banked_expiry": "가장 빠른 것은 {{when}} 만료됩니다. 계정 페이지에서 사용하세요.",
+    "banked_hint": "계정 페이지에서 하나를 사용해 계정의 한도를 다시 채우세요.",
+    "strip_label": "풀 주간 여유",
+    "strip_value": "{{capacity}}% 중 {{remaining}}%",
+    "strip_link": "풀 열기"
   }
 }

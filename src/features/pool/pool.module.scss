@@ -1,0 +1,283 @@
+@use '../../styles/mixins' as *;
+
+/* Pool cards after T3 Code's pooled limits (MIT): a big pooled figure, the chart, then
+   plain-labelled facts. */
+
+.page {
+  container: pool / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--t3-foreground);
+  }
+
+  p {
+    margin: 0;
+    font-size: $text-sm;
+    color: var(--t3-muted-foreground);
+  }
+}
+
+.loading {
+  padding: 32px 0;
+  text-align: center;
+  font-size: $text-sm;
+  color: var(--t3-muted-foreground);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+@container pool (min-width: 1100px) {
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cardCompact {
+    grid-column: 1 / -1;
+  }
+}
+
+.card {
+  @include t3-surface(14px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 18px 20px 16px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: $text-base;
+  color: var(--t3-foreground);
+
+  img {
+    border-radius: 4px;
+  }
+}
+
+.updated {
+  font-size: $text-xs;
+  color: var(--t3-muted-foreground);
+}
+
+.headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.big {
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--t3-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.cardCompact .big {
+  font-size: 32px;
+}
+
+.of {
+  font-size: $text-sm;
+  color: var(--t3-muted-foreground);
+}
+
+.explain {
+  margin: 0;
+  font-size: $text-xs;
+  color: var(--t3-subtle-foreground);
+}
+
+.chart {
+  position: relative;
+  width: 100%;
+}
+
+.grid {
+  stroke: var(--t3-border);
+}
+
+.gridDay {
+  stroke: color-mix(in srgb, var(--t3-border) 50%, transparent);
+}
+
+.axis {
+  fill: var(--t3-muted-foreground);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.recorded {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.projected {
+  fill: none;
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+  stroke-linejoin: round;
+}
+
+.now {
+  stroke: var(--t3-muted-foreground);
+  stroke-width: 1;
+}
+
+.dot {
+  stroke: var(--t3-background);
+  stroke-width: 2;
+}
+
+.jumpLabel {
+  fill: var(--t3-muted-foreground);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cross {
+  stroke: var(--t3-border-strong);
+}
+
+.tooltip {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--t3-border);
+  border-radius: 8px;
+  background: var(--t3-popover);
+  box-shadow: var(--t3-shadow-popover);
+  font-size: $text-xs;
+  color: var(--t3-muted-foreground);
+  pointer-events: none;
+
+  strong {
+    color: var(--t3-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 20px;
+  font-size: $text-xs;
+  color: var(--t3-muted-foreground);
+
+  > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+.legendSolid {
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+}
+
+.legendDashed {
+  width: 16px;
+  height: 0;
+  border-top: 2px dashed;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px 24px;
+  margin: 6px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--t3-border);
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  dt {
+    font-size: $text-xs;
+    color: var(--t3-muted-foreground);
+  }
+
+  dd {
+    margin: 0;
+    font-size: $text-sm;
+    color: var(--t3-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.hint {
+  font-size: $text-2xs !important;
+  line-height: 1.45;
+  color: var(--t3-subtle-foreground) !important;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 10px;
+    padding: 3px 0;
+    font-size: $text-xs;
+  }
+}
+
+.listName {
+  display: block;
+  min-width: 0;
+  color: var(--t3-foreground);
+}
+
+.muted {
+  color: var(--t3-muted-foreground);
+}
+
+.warning {
+  color: var(--t3-warning-foreground);
+}

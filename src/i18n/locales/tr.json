@@ -120,7 +120,8 @@
     "logs": "Günlük Görüntüleyici",
     "system_info": "Yönetim Merkezi Bilgisi",
     "more": "Daha fazla",
-    "requests": "İstekler"
+    "requests": "İstekler",
+    "pool": "Havuz"
   },
   "nav_groups": {
     "operate": "İşlet",
@@ -143,7 +144,8 @@
     "config_management": "Ağ Geçidi Yapılandırması",
     "system_info": "Çalışma Zamanı ve Tanılama",
     "more": "Yönlendirme, günlükler, yapılandırma, eklentiler",
-    "requests": "Her istek ve onu karşılayan hesap"
+    "requests": "Her istek ve onu karşılayan hesap",
+    "pool": "Tüm hesapların limitleri toplamı"
   },
   "insights": {
     "via_codex_lb": "{{accounts}} (codex-lb üzerinden)",
@@ -264,7 +266,12 @@
     "reason_out_of_credits": "Kredi bitti.",
     "reset_action": "Limitleri sıfırla",
     "reset_hint": "Bu hesabın limitlerini temizlemek için biriken bir sıfırlamayı kullanır. Önce sorar.",
-    "reset_dialog_title": "Kullanım limitlerini sıfırla"
+    "reset_dialog_title": "Kullanım limitlerini sıfırla",
+    "updated": "{{when}} güncellendi",
+    "updated_stale": "Son okuma {{when}}, yenileniyor",
+    "limited_until": "Sınırlı, {{when}} açılır",
+    "limited": "Sınırlı",
+    "fable_weekly": "Haftalık Fable limiti"
   },
   "codex_lb": {
     "refreshed": "{{name}} codex-lb üzerinden yenilendi.",
@@ -2756,5 +2763,52 @@
     "usage_none": "Bu aralıkta istek yok",
     "read_limits": "Tüm limitleri oku",
     "read_limits_hint": "Her Claude ve Codex hesabından güncel limitlerini iste."
+  },
+  "pool": {
+    "title": "Havuz",
+    "subtitle": "Tüm hesapların limitleri toplamı. Toplayıcı her hesabı birkaç dakikada bir okur, bu yüzden kendiliğinden güncel kalır.",
+    "unreachable": "Limit okumaları yok: kullanım toplayıcısı yanıt vermiyor.",
+    "accounts_one": "{{count}} hesap",
+    "accounts_other": "{{count}} hesap",
+    "updated": "{{when}} güncellendi",
+    "stale_count_one": "{{count}} okuma gecikti",
+    "stale_count_other": "{{count}} okuma gecikti",
+    "of_weekly": "haftalık {{capacity}}% içinden kaldı",
+    "of_fable": "Fable haftalık {{capacity}}% içinden kaldı",
+    "card_fable": "Claude Fable",
+    "weight_note": "{{plan}} = {{weight}}x",
+    "explain_claude": "Haftalık limiti hiç kullanılmamış her Claude hesabı 100% ekler.",
+    "explain_codex": "Her Codex hesabı, planın her Pro 200'ü için 100% ekler; daha büyük planlar daha fazla ekler.",
+    "explain_unweighted": "Bir plan bilinmiyor, bu yüzden her hesap 100% sayılır.",
+    "now": "Şimdi",
+    "chart_label": "{{name}} havuz limiti, kaydedilen ve tahmin",
+    "recorded": "Kaydedilen",
+    "projected": "Mevcut hızla tahmin",
+    "no_history": "Toplayıcı hesapları okudukça geçmiş birikir.",
+    "runs_out": "Tükenme",
+    "rate_unknown": "Söylemek için henüz yeterli geçmiş yok",
+    "not_spending": "Mevcut hızla tükenmez",
+    "lasts": "Önümüzdeki {{days}} gün içinde değil",
+    "burn": "Son 24 saate göre günde havuzun yaklaşık {{rate}}% kadarı harcanıyor.",
+    "burn_hint": "Son 24 saatlik okumalardan hesaplandı.",
+    "next_resets": "Sonraki sıfırlamalar",
+    "no_resets": "Bildirilen sıfırlama zamanı yok",
+    "limited_now": "Şu an limitli",
+    "none_limited": "Yok",
+    "reopens": "{{when}} yeniden açılır",
+    "limited": "limitli",
+    "limited_hint": "Bu hesaplar yeniden açılana kadar istek alamaz.",
+    "five_hour": "Kısa vadeli pay",
+    "five_hour_value": "5 saatlik pencerelerde {{capacity}}% içinden {{remaining}}% kaldı",
+    "five_hour_hint": "Haftalık pay, ancak 5 saatlik pencerelerde yer varsa işe yarar.",
+    "banked": "Biriken sıfırlamalar",
+    "banked_value_one": "{{count}} kullanılabilir",
+    "banked_value_other": "{{count}} kullanılabilir",
+    "banked_unknown": "Henüz okunmadı",
+    "banked_expiry": "En yakını {{when}} sona erer. Hesaplar sayfasında kullanın.",
+    "banked_hint": "Hesabın limitlerini yenilemek için Hesaplar sayfasında birini kullanın.",
+    "strip_label": "Havuz haftalık payı",
+    "strip_value": "{{capacity}}% içinden {{remaining}}%",
+    "strip_link": "Havuzu aç"
   }
 }

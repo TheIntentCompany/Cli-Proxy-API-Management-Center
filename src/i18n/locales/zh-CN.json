@@ -120,7 +120,8 @@
     "logs": "日志查看",
     "system_info": "中心信息",
     "more": "更多",
-    "requests": "请求"
+    "requests": "请求",
+    "pool": "额度池"
   },
   "nav_groups": {
     "operate": "运行",
@@ -143,7 +144,8 @@
     "config_management": "网关基础配置",
     "system_info": "运行与诊断信息",
     "more": "路由、日志、配置、插件",
-    "requests": "每个请求及其服务账号"
+    "requests": "每个请求及其服务账号",
+    "pool": "所有账号额度合计"
   },
   "insights": {
     "via_codex_lb": "{{accounts}}（经由 codex-lb）",
@@ -264,7 +266,12 @@
     "reason_out_of_credits": "额度已用完。",
     "reset_action": "重置限额",
     "reset_hint": "使用一次储备的重置来清除此账号的限额。执行前会先确认。",
-    "reset_dialog_title": "重置用量限额"
+    "reset_dialog_title": "重置用量限额",
+    "updated": "更新于{{when}}",
+    "updated_stale": "上次读取于{{when}}，正在刷新",
+    "limited_until": "受限，{{when}}恢复",
+    "limited": "受限",
+    "fable_weekly": "Fable 每周额度"
   },
   "codex_lb": {
     "refreshed": "已通过 codex-lb 刷新 {{name}}。",
@@ -2755,5 +2762,52 @@
     "usage_none": "此时间范围内没有请求",
     "read_limits": "读取所有配额",
     "read_limits_hint": "向每个 Claude 和 Codex 账号查询当前配额。"
+  },
+  "pool": {
+    "title": "额度池",
+    "subtitle": "所有账号的额度合计。采集器每隔几分钟读取一次各账号，因此会自动保持最新。",
+    "unreachable": "无法读取额度：用量采集器没有响应。",
+    "accounts_one": "{{count}} 个账号",
+    "accounts_other": "{{count}} 个账号",
+    "updated": "{{when}}更新",
+    "stale_count_one": "{{count}} 条读数已过期",
+    "stale_count_other": "{{count}} 条读数已过期",
+    "of_weekly": "剩余，每周共 {{capacity}}%",
+    "of_fable": "剩余，Fable 每周共 {{capacity}}%",
+    "card_fable": "Claude Fable",
+    "weight_note": "{{plan}} = {{weight}}x",
+    "explain_claude": "每个 Claude 账号在每周额度未使用时计 100%。",
+    "explain_codex": "每个 Codex 账号按套餐中每个 Pro 200 计 100%；更大的套餐计更多。",
+    "explain_unweighted": "有一个套餐未知，因此每个账号都按 100% 计。",
+    "now": "现在",
+    "chart_label": "{{name}} 额度池，已记录与预测",
+    "recorded": "已记录",
+    "projected": "按当前速率预测",
+    "no_history": "历史记录会随着采集器读取账号逐步积累。",
+    "runs_out": "耗尽时间",
+    "rate_unknown": "历史数据还不足以判断",
+    "not_spending": "按当前速率不会耗尽",
+    "lasts": "未来 {{days}} 天内不会耗尽",
+    "burn": "根据过去 24 小时，每天消耗约 {{rate}}% 的额度池。",
+    "burn_hint": "根据过去 24 小时的读数计算。",
+    "next_resets": "下次重置",
+    "no_resets": "未上报重置时间",
+    "limited_now": "当前受限",
+    "none_limited": "无",
+    "reopens": "{{when}}恢复",
+    "limited": "受限",
+    "limited_hint": "这些账号在恢复前无法接收请求。",
+    "five_hour": "短期余量",
+    "five_hour_value": "5 小时窗口剩余 {{remaining}}%，共 {{capacity}}%",
+    "five_hour_hint": "只有 5 小时窗口仍有空间时，每周余量才有用。",
+    "banked": "已存重置",
+    "banked_value_one": "{{count}} 个可用",
+    "banked_value_other": "{{count}} 个可用",
+    "banked_unknown": "尚未读取",
+    "banked_expiry": "最早的{{when}}到期。请在账号页面使用。",
+    "banked_hint": "在账号页面使用一个，即可补满账号的额度。",
+    "strip_label": "额度池每周余量",
+    "strip_value": "{{remaining}}%，共 {{capacity}}%",
+    "strip_link": "打开额度池"
   }
 }

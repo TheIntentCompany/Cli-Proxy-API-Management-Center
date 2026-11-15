@@ -1,6 +1,7 @@
 [Unit]
 Description=CLIProxyAPI usage history (127.0.0.1:8337)
-After=network-online.target intent-codex-lb.service
+After=network-online.target intent-codex-lb.service intent-seat-pacer-export.service
+Wants=intent-seat-pacer-export.service
 Wants=network-online.target
 
 [Service]

@@ -198,3 +198,47 @@
     transform: rotate(360deg);
   }
 }
+
+/* One line of pooled weekly room, linking to the Pool page. */
+.poolStrip {
+  @include button-reset;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--t3-border);
+  border-radius: 10px;
+  background: var(--t3-card);
+  color: var(--t3-muted-foreground);
+  font-size: $text-sm;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--t3-border-strong);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--t3-primary);
+    outline-offset: 2px;
+  }
+
+  strong {
+    color: var(--t3-foreground);
+    font-weight: 500;
+  }
+}
+
+.poolStripLabel {
+  color: var(--t3-foreground);
+}
+
+.poolStripItem {
+  font-variant-numeric: tabular-nums;
+}
+
+.poolStripLink {
+  margin-left: auto;
+  color: var(--t3-primary);
+}

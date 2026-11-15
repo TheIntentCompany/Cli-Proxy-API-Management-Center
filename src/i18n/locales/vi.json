@@ -120,7 +120,8 @@
     "logs": "Trình xem Log",
     "system_info": "Thông tin Trung tâm Quản lý",
     "more": "Thêm",
-    "requests": "Yêu cầu"
+    "requests": "Yêu cầu",
+    "pool": "Tổng hạn mức"
   },
   "nav_groups": {
     "operate": "Vận hành",
@@ -143,7 +144,8 @@
     "config_management": "Cấu hình gateway",
     "system_info": "Runtime & chẩn đoán",
     "more": "Định tuyến, log, cấu hình, plugin",
-    "requests": "Mọi yêu cầu và tài khoản đã phục vụ"
+    "requests": "Mọi yêu cầu và tài khoản đã phục vụ",
+    "pool": "Hạn mức của mọi tài khoản cộng lại"
   },
   "insights": {
     "via_codex_lb": "{{accounts}} qua codex-lb",
@@ -264,7 +266,12 @@
     "reason_out_of_credits": "Hết tín dụng.",
     "reset_action": "Đặt lại giới hạn",
     "reset_hint": "Dùng một lượt đặt lại đã tích để xóa giới hạn của tài khoản này. Sẽ hỏi trước.",
-    "reset_dialog_title": "Đặt lại giới hạn sử dụng"
+    "reset_dialog_title": "Đặt lại giới hạn sử dụng",
+    "updated": "Cập nhật {{when}}",
+    "updated_stale": "Đọc lần cuối {{when}}, đang làm mới",
+    "limited_until": "Bị giới hạn, mở lại {{when}}",
+    "limited": "Bị giới hạn",
+    "fable_weekly": "Giới hạn Fable hằng tuần"
   },
   "codex_lb": {
     "refreshed": "Đã làm mới {{name}} qua codex-lb.",
@@ -2762,5 +2769,52 @@
     "usage_none": "Không có yêu cầu trong khoảng thời gian này",
     "read_limits": "Đọc tất cả giới hạn",
     "read_limits_hint": "Hỏi từng tài khoản Claude và Codex về giới hạn hiện tại."
+  },
+  "pool": {
+    "title": "Tổng hạn mức",
+    "subtitle": "Hạn mức của mọi tài khoản cộng lại. Bộ thu thập đọc từng tài khoản vài phút một lần nên số liệu tự cập nhật.",
+    "unreachable": "Không có số liệu giới hạn: bộ thu thập mức dùng không phản hồi.",
+    "accounts_one": "{{count}} tài khoản",
+    "accounts_other": "{{count}} tài khoản",
+    "updated": "Cập nhật {{when}}",
+    "stale_count_one": "{{count}} lần đọc bị trễ",
+    "stale_count_other": "{{count}} lần đọc bị trễ",
+    "of_weekly": "trên {{capacity}}% hằng tuần còn lại",
+    "of_fable": "trên {{capacity}}% Fable hằng tuần còn lại",
+    "card_fable": "Claude Fable",
+    "weight_note": "{{plan}} = {{weight}}x",
+    "explain_claude": "Mỗi tài khoản Claude cộng thêm 100% khi giới hạn hằng tuần chưa dùng.",
+    "explain_codex": "Mỗi tài khoản Codex cộng 100% cho mỗi Pro 200 của gói; gói lớn hơn cộng nhiều hơn.",
+    "explain_unweighted": "Có một gói chưa xác định, nên mỗi tài khoản được tính 100%.",
+    "now": "Bây giờ",
+    "chart_label": "Hạn mức tổng của {{name}}, đã ghi và dự báo",
+    "recorded": "Đã ghi",
+    "projected": "Dự báo theo tốc độ hiện tại",
+    "no_history": "Lịch sử sẽ tích lũy khi bộ thu thập đọc các tài khoản.",
+    "runs_out": "Hết vào",
+    "rate_unknown": "Chưa đủ lịch sử để xác định",
+    "not_spending": "Không với tốc độ hiện tại",
+    "lasts": "Không hết trong {{days}} ngày tới",
+    "burn": "Đang dùng khoảng {{rate}}% tổng hạn mức mỗi ngày, tính từ 24 giờ qua.",
+    "burn_hint": "Tính từ các lần đọc trong 24 giờ qua.",
+    "next_resets": "Lần đặt lại tới",
+    "no_resets": "Chưa có thời điểm đặt lại",
+    "limited_now": "Đang bị giới hạn",
+    "none_limited": "Không có",
+    "reopens": "mở lại {{when}}",
+    "limited": "bị giới hạn",
+    "limited_hint": "Các tài khoản này không nhận được yêu cầu cho đến khi mở lại.",
+    "five_hour": "Dư địa ngắn hạn",
+    "five_hour_value": "Còn {{remaining}}% trên {{capacity}}% trong các khung 5 giờ",
+    "five_hour_hint": "Hạn mức hằng tuần chỉ có ích khi các khung 5 giờ còn chỗ.",
+    "banked": "Lượt đặt lại để dành",
+    "banked_value_one": "{{count}} khả dụng",
+    "banked_value_other": "{{count}} khả dụng",
+    "banked_unknown": "Chưa đọc",
+    "banked_expiry": "Lượt gần nhất hết hạn {{when}}. Dùng chúng ở trang Tài khoản.",
+    "banked_hint": "Dùng một lượt ở trang Tài khoản để nạp lại giới hạn của tài khoản.",
+    "strip_label": "Dư địa hằng tuần của tổng hạn mức",
+    "strip_value": "{{remaining}}% trên {{capacity}}%",
+    "strip_link": "Mở Tổng hạn mức"
   }
 }

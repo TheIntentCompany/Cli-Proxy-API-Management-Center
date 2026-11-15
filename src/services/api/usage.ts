@@ -335,3 +335,131 @@ export const usageApi = {
     };
   },
 };
+
+/* ---------- Account limits pool (/v1/pool) ---------- */
+
+export type PoolWindowKind = 'five_hour' | 'weekly' | 'fable' | 'monthly';
+
+export interface PoolWindow {
+  kind: PoolWindowKind;
+  /** 0-100, can exceed 100 when the provider reports overage. */
+  usedPercent: number;
+  resetsAtMs: number | null;
+  windowMinutes: number | null;
+}
+
+export interface PoolAccount {
+  key: string;
+  provider: 'claude' | 'codex';
+  label: string | null;
+  plan: string | null;
+  via: string | null;
+  authIndex: string | null;
+  fileName: string | null;
+  source: string | null;
+  observedAtMs: number | null;
+  stale: boolean;
+  error: string | null;
+  windows: PoolWindow[];
+  bankedResets: { available: number | null; nextExpiresAtMs: number | null } | null;
+  limitedUntilMs: number | null;
+}
+
+export interface PoolSample {
+  t: number;
+  usedPercent: number;
+  resetsAtMs: number | null;
+}
+
+export interface PoolHistory {
+  key: string;
+  kind: PoolWindowKind;
+  points: PoolSample[];
+}
+
+export interface PoolState {
+  generatedAtMs: number | null;
+  accounts: PoolAccount[];
+  history: PoolHistory[];
+}
+
+const KINDS: PoolWindowKind[] = ['five_hour', 'weekly', 'fable', 'monthly'];
+const kindOf = (value: unknown): PoolWindowKind | null =>
+  KINDS.includes(value as PoolWindowKind) ? (value as PoolWindowKind) : null;
+
+const poolAccountFrom = (raw: unknown): PoolAccount | null => {
+  if (!isRecord(raw)) return null;
+  const key = str(raw.key);
+  const provider = raw.provider === 'claude' || raw.provider === 'codex' ? raw.provider : null;
+  if (!key || !provider) return null;
+  const banked = isRecord(raw.banked_resets) ? raw.banked_resets : null;
+  return {
+    key,
+    provider,
+    label: str(raw.label),
+    plan: str(raw.plan),
+    via: str(raw.via),
+    authIndex: str(raw.auth_index),
+    fileName: str(raw.file_name),
+    source: str(raw.source),
+    observedAtMs: numOrNull(raw.observed_at),
+    stale: raw.stale === true,
+    error: str(raw.error),
+    windows: Array.isArray(raw.windows)
+      ? raw.windows.filter(isRecord).flatMap((window) => {
+          const kind = kindOf(window.kind);
+          return kind
+            ? [
+                {
+                  kind,
+                  usedPercent: num(window.used_percent),
+                  resetsAtMs: numOrNull(window.resets_at),
+                  windowMinutes: numOrNull(window.window_minutes),
+                },
+              ]
+            : [];
+        })
+      : [],
+    bankedResets: banked
+      ? {
+          available: numOrNull(banked.available),
+          nextExpiresAtMs: numOrNull(banked.next_expires_at),
+        }
+      : null,
+    limitedUntilMs: numOrNull(raw.limited_until),
+  };
+};
+
+export const poolApi = {
+  /** Latest readings for every account; with a range, also their recorded history. */
+  read: async (range?: { from: number; to: number }): Promise<PoolState> => {
+    const body = await get('/v1/pool', range ?? {});
+    return {
+      generatedAtMs: numOrNull(body.generated_at),
+      accounts: Array.isArray(body.accounts)
+        ? body.accounts.map(poolAccountFrom).filter((item): item is PoolAccount => item !== null)
+        : [],
+      history: Array.isArray(body.history)
+        ? body.history.filter(isRecord).flatMap((entry) => {
+            const key = str(entry.key);
+            const kind = kindOf(entry.kind);
+            if (!key || !kind || !Array.isArray(entry.points)) return [];
+            return [
+              {
+                key,
+                kind,
+                points: entry.points
+                  .filter((point): point is unknown[] => Array.isArray(point))
+                  .map((point) => ({
+                    t: num(point[0]),
+                    usedPercent: num(point[1]),
+                    resetsAtMs: numOrNull(point[2]),
+                  }))
+                  .sort((a, b) => a.t - b.t),
+              },
+            ];
+          })
+        : [],
+    };
+  },
+};
