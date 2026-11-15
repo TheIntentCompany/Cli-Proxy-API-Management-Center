@@ -40,6 +40,8 @@ FREE_FLOOR = 700_000_000
 # Reserve for an incoming batch, indexes, rollups and a checkpoint before popping.
 BATCH_RESERVE = 32_000_000
 MAX_BODY = 16_000_000
+GATEWAY_TIMEOUT = 30
+GATEWAY_DEADLINE = 50
 # 16 bins: 15 finite upper edges, last bin is overflow. Percentiles use upper edges.
 HIST_EDGES = tuple(round(100 * (6000 ** (i / 14))) for i in range(15))
 TOKEN_FIELDS = ('input_uncached', 'cache_read', 'cache_write_5m', 'cache_write_1h',
@@ -241,6 +243,9 @@ class Store:
     def __init__(self, path, pricing):
         self.path, self.pricing = Path(path), pricing
         self.lock = threading.RLock()
+        self._read_local = threading.local()
+        self._summary_cache = {}
+        self._summary_cache_lock = threading.Lock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.path, check_same_thread=False, isolation_level=None, timeout=2)
         self.conn.row_factory = sqlite3.Row
@@ -281,6 +286,14 @@ class Store:
           {columns}, PRIMARY KEY(hour,provider,model,account,key,outcome)) WITHOUT ROWID''')
         self.started = now_ms()
         self.last_drain_at, self.last_drain_count = None, 0
+
+    @property
+    def conn(self):
+        return getattr(self._read_local, 'connection', None) or self._writer
+
+    @conn.setter
+    def conn(self, value):
+        self._writer = value
 
     def close(self):
         self.conn.close()
@@ -419,15 +432,19 @@ class Store:
 
     @contextmanager
     def read(self):
-        if not self.lock.acquire(timeout=.5):
-            raise sqlite3.OperationalError('reader busy')
+        conn = sqlite3.connect(f'file:{quote(str(self.path), safe="/")}?mode=ro',
+                               uri=True, isolation_level=None, timeout=.2)
+        conn.row_factory = sqlite3.Row
+        conn.execute('PRAGMA query_only=ON')
+        conn.execute('BEGIN')
         deadline = time.monotonic() + 4
-        self.conn.set_progress_handler(lambda: int(time.monotonic() > deadline), 1000)
+        conn.set_progress_handler(lambda: int(time.monotonic() > deadline), 1000)
+        self._read_local.connection = conn
         try:
             yield
         finally:
-            self.conn.set_progress_handler(None, 0)
-            self.lock.release()
+            del self._read_local.connection
+            conn.close()
 
     @staticmethod
     def filters(params, alias):
@@ -446,6 +463,22 @@ class Store:
 
     def summary(self, params):
         start, end = time_range(params)
+        # Hourly rollups include whole hours only. Preserve both the SQL frontier
+        # and the zero-filled series frontier when sharing short-lived results.
+        key = (end - start > (366 * DAY if params.get('bucket', 'hour') == 'hour' else 10 * 366 * DAY), start // HOUR, (start + HOUR - 1) // HOUR, (end + HOUR - 1) // HOUR,
+               tuple(sorted((k, v) for k, v in params.items() if k not in {'from', 'to', 'range'})))
+        with self._summary_cache_lock:
+            held = self._summary_cache.get(key)
+            if held is not None and time.monotonic() - held[0] < 10:
+                return held[1]
+            result = self._summary(params)
+            if len(self._summary_cache) >= 8:
+                self._summary_cache.clear()
+            self._summary_cache[key] = (time.monotonic(), result)
+            return result
+
+    def _summary(self, params):
+        start, end = time_range(params)
         bucket = params.get('bucket', 'hour')
         if bucket not in {'hour', 'day'}:
             raise ValueError('invalid bucket')
@@ -462,30 +495,39 @@ class Store:
             clauses, args = self.filters(params, 'h')
             clauses += ['h.hour>=?', 'h.hour<?']
             args += [start, end]
-            sql = f'''SELECT h.*, p.name provider_name, m.name model_name, a.auth_index,
-              a.label, a.via, k.key_id, k.key_masked FROM hourly h {self.joins('h')}
-              WHERE {" AND ".join(clauses)} ORDER BY h.hour'''
-            total, series, groups = empty_totals(), {}, {k: {} for k in ('model', 'account', 'key', 'provider')}
+            where = f"FROM hourly h {self.joins('h')} WHERE {' AND '.join(clauses)}"
+            # Sum in SQLite: summing ~50 fields per rollup row through sqlite3.Row in
+            # Python took about a second of CPU per call, several under the CPU quota.
+            sums = ', '.join(f'COALESCE(SUM(h.{f}), 0) AS {f}' for f in ROLL_FIELDS)
+            width = len(ROLL_FIELDS)
+
+            def totals_of(row):
+                return dict(zip(ROLL_FIELDS, tuple(row)[-width:]))
+
+            total = totals_of(self.conn.execute(f'SELECT {sums} {where}', args).fetchone())
+            series, groups = {}, {k: {} for k in ('model', 'account', 'key', 'provider')}
             # Iterate UTC hours for DST changes; calendar midnights are derived in tz.
             for hour in range(start // HOUR * HOUR, end, HOUR):
                 series.setdefault(bucket_at(hour), {'totals': empty_totals(), 'providers': {}})
-            deadline = time.monotonic() + 4
-            for row in self.conn.execute(sql, args):
-                if time.monotonic() >= deadline:
-                    raise sqlite3.OperationalError('summary deadline')
-                add_totals(total, row)
-                entry = series.setdefault(bucket_at(row['hour']), {'totals': empty_totals(), 'providers': {}})
-                add_totals(entry['totals'], row)
-                add_totals(entry['providers'].setdefault(row['provider_name'], empty_totals()), row)
-                identities = {'model': (row['model'], {'model': row['model_name']}),
-                              'provider': (row['provider'], {'provider': row['provider_name']}),
-                              'account': (row['account'], {'account_id': row['auth_index'], 'label': row['label'],
-                                                         'provider': row['provider_name'], 'via': row['via']}),
-                              'key': (row['key'], {'key_id': row['key_id'], 'key_masked': row['key_masked']})}
-                for name, (identity, fields) in identities.items():
-                    held = groups[name].setdefault(identity, {'fields': fields, 'totals': empty_totals()})
-                    add_totals(held['totals'], row)
-                if sum(len(group) for group in groups.values()) > 10_000:
+            for row in self.conn.execute(
+                    f'SELECT h.hour, p.name, {sums} {where} GROUP BY h.hour, h.provider', args):
+                values = totals_of(row)
+                entry = series.setdefault(bucket_at(row[0]), {'totals': empty_totals(), 'providers': {}})
+                add_totals(entry['totals'], values)
+                add_totals(entry['providers'].setdefault(row[1], empty_totals()), values)
+            dimensions = {
+                'model': ('h.model', 'm.name', lambda r: {'model': r[1]}),
+                'provider': ('h.provider', 'p.name', lambda r: {'provider': r[1]}),
+                'account': ('h.account', 'a.auth_index, a.label, MAX(p.name), a.via',
+                            lambda r: {'account_id': r[1], 'label': r[2], 'provider': r[3], 'via': r[4]}),
+                'key': ('h.key', 'k.key_id, k.key_masked',
+                        lambda r: {'key_id': r[1], 'key_masked': r[2]}),
+            }
+            for name, (column, labels, fields) in dimensions.items():
+                for row in self.conn.execute(
+                        f'SELECT {column}, {labels}, {sums} {where} GROUP BY {column}', args):
+                    groups[name][row[0]] = {'fields': fields(row), 'totals': totals_of(row)}
+                if len(groups[name]) > 10_000:
                     raise ValueError('too many groups; narrow the range or filters')
             points = []
             for t, entry in sorted(series.items()):
@@ -691,6 +733,16 @@ class LBReader:
         return imported
 
 
+def log_failure(stage, error):
+    # Only fixed categories and SQLite's symbolic error code, never response/exception text.
+    category = ('timeout' if isinstance(error, TimeoutError) else
+                'sqlite_' + str(getattr(error, 'sqlite_errorname', 'ERROR')) if isinstance(error, sqlite3.Error) else
+                'authentication' if isinstance(error, AuthFailure) else
+                'invalid_data' if isinstance(error, (ValueError, TypeError)) else
+                'http_protocol' if isinstance(error, http.client.HTTPException) else 'io')
+    sys.stderr.write(f'failure stage={stage} category={category}\n')
+
+
 class AuthFailure(Exception):
     pass
 
@@ -713,7 +765,8 @@ class Gateway:
         # consecutive attempt until the credential changes or the process restarts.
         if time.monotonic() < self.retry_at or self.failures >= 4:
             raise AuthFailure()
-        conn = http.client.HTTPConnection('127.0.0.1', 8317, timeout=5)
+        deadline = time.monotonic() + GATEWAY_DEADLINE
+        conn = http.client.HTTPConnection('127.0.0.1', 8317, timeout=GATEWAY_TIMEOUT)
         try:
             conn.request('GET', path, headers={'Authorization': 'Bearer ' + key, 'Accept': 'application/json'})
             response = conn.getresponse()
@@ -726,12 +779,12 @@ class Gateway:
             self.failures = 0
             # Bound both size and elapsed time. read1 yields after a socket read;
             # read(n) may let a trickling peer keep the call alive indefinitely.
-            deadline, chunks, size = time.monotonic() + 10, [], 0
+            chunks, size = [], 0
             while True:
                 if time.monotonic() >= deadline:
                     raise TimeoutError('gateway response deadline')
                 if conn.sock is not None:
-                    conn.sock.settimeout(min(5, max(.001, deadline - time.monotonic())))
+                    conn.sock.settimeout(min(GATEWAY_TIMEOUT, max(.001, deadline - time.monotonic())))
                 chunk = response.read1(min(65536, MAX_BODY + 1 - size))
                 if not chunk:
                     break
@@ -752,6 +805,7 @@ class Collector:
         with store.lock:
             self.routes = json.loads(store.meta('routes', '{}'))
         self.next_routes, self.next_prune = 0.0, 0.0
+        self.maintenance = None
 
     def once(self):
         # A pending batch has priority over all network and maintenance activity.
@@ -761,22 +815,6 @@ class Collector:
         if time.monotonic() >= self.next_prune:
             self.store.prune(reserve=BATCH_RESERVE)
             self.next_prune = time.monotonic() + 86400
-        # Fetch routing before the first queue pop, but an unavailable source DB
-        # must not prevent queue collection. Retry independently on the next cycle.
-        if time.monotonic() >= self.next_routes:
-            try:
-                document = self.gateway.get('/v0/management/codex-api-key')
-                routes = self.lb.resolve_routes(document)
-                with self.store.transaction():
-                    self.store.set_meta('routes', json.dumps(routes, separators=(',', ':')))
-                self.routes = routes
-                self.next_routes = time.monotonic() + 300
-            except AuthFailure:
-                raise
-            except (OSError, ValueError, sqlite3.Error, http.client.HTTPException):
-                self.next_routes = time.monotonic() + 5
-                sys.stderr.write('route refresh unavailable\n')
-                raise OSError('route refresh unavailable') from None
         while not self.stop.is_set():
             with self.store.lock:
                 if not self.store.can_pop():
@@ -791,13 +829,41 @@ class Collector:
             self.pending = None
             if len(batch) < 500:
                 break
+        if self.maintenance is None or not self.maintenance.is_alive():
+            self.maintenance = threading.Thread(target=self.maintain, name='maintenance', daemon=True)
+            self.maintenance.start()
+
+    def maintain(self):
+        try:
+            self._maintain()
+        except (OSError, ValueError, TypeError, sqlite3.Error, http.client.HTTPException) as error:
+            log_failure('maintenance', error)
+        finally:
+            self.lb.close()
+
+    def _maintain(self):
+        # This worker never pops the queue. A slow config read cannot delay draining.
+        if time.monotonic() >= self.next_routes:
+            try:
+                document = Gateway(self.gateway.credential_path).get('/v0/management/codex-api-key')
+                routes = self.lb.resolve_routes(document)
+                with self.store.transaction():
+                    self.store.set_meta('routes', json.dumps(routes, separators=(',', ':')))
+                self.routes = routes
+                self.next_routes = time.monotonic() + 300
+            except AuthFailure as error:
+                self.next_routes = time.monotonic() + 60
+                log_failure('route_refresh', error)
+            except (OSError, ValueError, sqlite3.Error, http.client.HTTPException) as error:
+                self.next_routes = time.monotonic() + 60
+                log_failure('route_refresh', error)
         if self.store.can_pop() and time.monotonic() >= getattr(self, 'next_backfill', 0):
             try:
                 self.lb.backfill(self.store, self.routes)
             except (OSError, ValueError, sqlite3.Error) as error:
                 # Back off so a failing read never hammers codex-lb's database.
                 self.next_backfill = time.monotonic() + 60
-                sys.stderr.write(f'backfill unavailable: {type(error).__name__}\n')
+                log_failure('backfill', error)
 
     def run(self):
         while not self.stop.is_set() or self.pending is not None:
@@ -811,15 +877,17 @@ class Collector:
             except AuthFailure:
                 delay = 60
                 sys.stderr.write('management authentication unavailable\n')
-            except (OSError, ValueError, TypeError, sqlite3.Error, http.client.HTTPException):
-                delay = 5
+            except (OSError, ValueError, TypeError, sqlite3.Error, http.client.HTTPException) as error:
+                delay = 3
                 # Never log exception strings: they can contain raw response data.
-                sys.stderr.write('collection unavailable; retrying\n')
+                log_failure('drain', error)
             if self.stop.is_set() and self.pending is not None:
                 time.sleep(.5)
             else:
                 self.stop.wait(delay)
-        self.lb.close()
+        if self.maintenance is not None:
+            self.maintenance.join()
+        # LBReader belongs to the maintenance thread and closes there.
 
 
 class _DeadlineReader:
@@ -872,6 +940,12 @@ class Handler(BaseHTTPRequestHandler):
         self.rfile = _DeadlineReader(self.connection, time.monotonic() + HEADER_DEADLINE_SECONDS)
 
     def _send(self, status, body, extra=None):
+        try:
+            self._write_response(status, body, extra)
+        except (BrokenPipeError, ConnectionResetError, TimeoutError):
+            sys.stderr.write("failure stage=client_write category=disconnected\n")
+
+    def _write_response(self, status, body, extra=None):
         # The header deadline may have left a very short socket timeout; writing gets
         # the normal inactivity limit again.
         self.connection.settimeout(SOCKET_TIMEOUT_SECONDS)

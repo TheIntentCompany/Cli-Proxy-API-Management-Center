@@ -265,13 +265,13 @@ class Fixture(unittest.TestCase):
 
     def test_collector_full_batches_and_pending_retry(self):
         gateway = SimpleNamespace(key='fixture-management', get=unittest.mock.Mock(side_effect=[
-            {}, [record()] * 500, [record()]]))
+            [record()] * 500, [record()]]))
         lb = SimpleNamespace(resolve_routes=lambda doc: {}, backfill=lambda *args: 0)
         worker = u.Collector(self.store, lb, gateway)
-        with patch.object(self.store, 'prune'), patch.object(self.store, 'can_pop', return_value=True):
+        with patch.object(self.store, 'prune'), patch.object(self.store, 'can_pop', return_value=True), patch.object(u.threading.Thread, 'start'):
             worker.once()
         self.assertEqual(self.store.health()['records_total'], 501)
-        self.assertEqual(gateway.get.call_count, 3)
+        self.assertEqual(gateway.get.call_count, 2)
         gateway.get = unittest.mock.Mock(return_value=[record()])
         worker.next_routes = float('inf')
         with patch.object(self.store, 'can_pop', return_value=True), patch.object(self.store, 'ingest', side_effect=sqlite3.OperationalError()):
@@ -285,6 +285,51 @@ class Fixture(unittest.TestCase):
         gateway.get.assert_not_called()
         self.assertIsNone(worker.pending)
         self.assertEqual(self.store.health()['records_total'], 502)
+
+    def test_slow_route_refresh_does_not_block_queue(self):
+        import threading
+        entered, release = threading.Event(), threading.Event()
+        def slow(path):
+            entered.set()
+            release.wait(2)
+            raise TimeoutError('synthetic response must never be logged')
+        gateway = SimpleNamespace(key='fixture', credential_path='fixture', get=lambda path: [record()])
+        lb = SimpleNamespace(resolve_routes=lambda doc: {}, backfill=lambda *args: 0, close=lambda: None)
+        worker = u.Collector(self.store, lb, gateway)
+        with patch.object(u.Gateway, 'get', side_effect=slow), patch.object(self.store, 'prune'):
+            worker.once()
+            self.assertTrue(entered.wait(1))
+            worker.once()
+            self.assertEqual(self.store.health()['records_total'], 2)
+            release.set()
+            worker.maintenance.join(2)
+
+    def test_read_snapshot_does_not_hold_ingestion_lock(self):
+        import threading
+        self.store.ingest([record()])
+        finished = threading.Event()
+        with self.store.read():
+            self.assertEqual(self.store.conn.execute('select count(*) from requests').fetchone()[0], 1)
+            def write():
+                self.store.ingest([record()])
+                finished.set()
+            thread = threading.Thread(target=write)
+            thread.start()
+            self.assertTrue(finished.wait(1))
+            self.assertEqual(self.store.conn.execute('select count(*) from requests').fetchone()[0], 1)
+        thread.join()
+        self.assertEqual(self.store.health()['records_total'], 2)
+
+    def test_summary_cache_coalesces_and_expires(self):
+        self.store.ingest([record()])
+        with patch.object(self.store, '_summary', wraps=self.store._summary) as calculate:
+            first = self.store.summary(self.params())
+            self.store.summary(self.params())
+            self.assertEqual(calculate.call_count, 1)
+            with patch.object(u.time, 'monotonic', return_value=u.time.monotonic() + 11):
+                self.store.summary(self.params())
+            self.assertEqual(calculate.call_count, 2)
+            self.assertEqual(first['totals']['requests'], 1)
 
     def test_http_contract_host_origin_methods_and_parameters(self):
         self.store.ingest([record()])
