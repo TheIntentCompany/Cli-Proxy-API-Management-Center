@@ -5,6 +5,9 @@ import json
 import sqlite3
 import sys
 import tempfile
+import threading
+import hashlib
+from datetime import datetime, timezone
 import unittest
 from email.message import Message
 from pathlib import Path
@@ -76,6 +79,33 @@ class Fixture(unittest.TestCase):
         reader = u.LBReader(path)
         self.addCleanup(reader.close)
         return reader, conn, add
+
+    def test_codex_lb_limit_history_backfill(self):
+        reader, conn, _ = self.fake_lb()
+        conn.executescript('''
+          CREATE TABLE api_key_accounts(api_key_id INTEGER, account_id INTEGER);
+          CREATE TABLE usage_history(id INTEGER PRIMARY KEY, account_id INTEGER, recorded_at TEXT,
+            "window" TEXT, used_percent REAL, reset_at INTEGER, window_minutes INTEGER);
+          INSERT INTO api_key_accounts VALUES(1,1);
+          INSERT INTO usage_history VALUES(1,1,'2026-11-14 00:00:00.000001',NULL,10,1795000000,10080);
+          INSERT INTO usage_history VALUES(2,1,'2026-11-14 00:05:00.000001',NULL,10,1795000000,10080);
+          INSERT INTO usage_history VALUES(3,1,'2026-11-14 01:00:00.000001',NULL,25,1795000000,10080);
+          INSERT INTO usage_history VALUES(4,1,'2026-11-14 01:00:00.000001','secondary',0,NULL,0);
+        ''')
+        conn.commit()
+        since = int(datetime(2026, 11, 13, tzinfo=timezone.utc).timestamp() * 1000)
+        history = reader.limit_history(since)
+        handle = hashlib.sha256(b'1').hexdigest()[:16]
+        # Repeated readings collapse to change points; a zero-minute window is kept but unmapped.
+        self.assertEqual([(p[1], p[2]) for p in history[handle]], [(10080, 10), (10080, 25), (0, 0)])
+        poller = u.QuotaPoller(self.store, None, threading.Event(), lb=reader)
+        poller.writer = u.QuotaWriter(self.store)
+        poller.read_lb_history(since + 10 * u.DAY)
+        poller.read_lb_history(since + 10 * u.DAY)
+        key = u.quota_account('codex', handle, via='codex-lb')['key']
+        rows = self.store.conn.execute(
+            'SELECT kind, used_percent, resets_at FROM quota_samples WHERE key=? ORDER BY ts', (key,)).fetchall()
+        self.assertEqual([tuple(row) for row in rows], [('weekly', 10.0, 1795000000000), ('weekly', 25.0, 1795000000000)])
 
     def test_tokens_pricing_and_secrets(self):
         failed = record(failed=True, fail={'status_code': 429, 'body': RAW + TOKEN_HASH + 'x' * 2500},

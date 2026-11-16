@@ -740,6 +740,37 @@ class LBReader:
                 result[auth] = {'label': clean(label, (raw,), 300), 'lb_key_id': key_id}
         return result
 
+    def limit_history(self, since_ms):
+        """Window readings codex-lb recorded for accounts behind cliproxy-* keys, read-only.
+
+        Returns {status-service handle: [(ts_ms, window_minutes, used_percent, reset_ms)]},
+        reduced to change points so a month of per-request rows stays small.
+        """
+        since = datetime.fromtimestamp(since_ms / 1000, timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        result = {}
+        with self.connection() as conn:
+            ids = [row[0] for row in conn.execute(
+                "SELECT DISTINCT ka.account_id FROM api_key_accounts ka "
+                "JOIN api_keys k ON k.id=ka.api_key_id WHERE k.name LIKE 'cliproxy-%'")]
+            for account_id in ids:
+                handle = hashlib.sha256(str(account_id).encode()).hexdigest()[:16]
+                points = []
+                for window in ('primary', 'secondary'):
+                    previous = None
+                    # Uses idx_usage_window_account_latest; recorded_at is naive UTC text.
+                    for used, reset, minutes, recorded in conn.execute(
+                            'SELECT used_percent, reset_at, window_minutes, recorded_at FROM usage_history '
+                            'WHERE coalesce("window", \'primary\')=? AND account_id=? AND recorded_at>=? '
+                            'ORDER BY recorded_at', (window, account_id, since)):
+                        current = (minutes, used, reset)
+                        if current == previous:
+                            continue
+                        previous = current
+                        points.append((timestamp_ns(recorded) // 1_000_000, minutes, used,
+                                       int(reset) * 1000 if reset else None))
+                result[handle] = points
+        return result
+
     def backfill(self, store, routes, limit=500):
         cutoff = store.meta('first_queue_ns')
         if cutoff is None or store.meta('backfill_done') == '1':
@@ -1192,6 +1223,19 @@ class QuotaWriter:
                     self.conn.execute('INSERT INTO quota_import VALUES (?,?,?) ON CONFLICT(key,kind) '
                         'DO UPDATE SET ts=excluded.ts', (key, kind, batch[-1][0]))
 
+    def import_points(self, key, kind, points):
+        """Imports (ts, used, reset) history once, behind a per-source cursor."""
+        held = self.conn.execute('SELECT ts FROM quota_import WHERE key=? AND kind=?', (key, kind)).fetchone()
+        frontier = held[0] if held else -1
+        fresh = sorted(point for point in points if point[0] > frontier)
+        for offset in range(0, len(fresh), 200):
+            batch = fresh[offset:offset + 200]
+            with self.transaction():
+                self.conn.executemany('INSERT OR IGNORE INTO quota_samples VALUES (?,?,?,?,?)',
+                    ((key, kind, ts, used, reset) for ts, used, reset in batch))
+                self.conn.execute('INSERT INTO quota_import VALUES (?,?,?) ON CONFLICT(key,kind) '
+                    'DO UPDATE SET ts=excluded.ts', (key, kind, batch[-1][0]))
+
     def outcome(self, key, operation, source, error=None):
         with self.transaction():
             self.conn.execute('DELETE FROM quota_errors WHERE key=? AND operation=?', (key, operation))
@@ -1209,8 +1253,11 @@ class QuotaWriter:
 
 
 class QuotaPoller:
-    def __init__(self, store, gateway, stop, seat_path='/var/lib/intent-seat-pacer/history.json'):
+    def __init__(self, store, gateway, stop, seat_path='/var/lib/intent-seat-pacer/history.json',
+                 lb=None):
         self.store, self.gateway, self.stop = store, gateway, stop
+        # Own read-only codex-lb connection, separate from the queue thread's.
+        self.lb = lb
         self.seat_path = Path(seat_path)
         self.accounts, self.account_ids, self.schedule = {}, {}, {}
         self.seat_times, self.seat_available, self.seat_locks = {}, False, {}
@@ -1347,6 +1394,20 @@ class QuotaPoller:
         self.writer.save(updated)
         self.accounts[account['key']] = updated
 
+    def read_lb_history(self, at):
+        """Backfills codex-lb accounts' recorded limit history (read-only, hourly, 30 days)."""
+        for handle, points in self.lb.limit_history(at - 30 * DAY).items():
+            key = quota_account('codex', handle, via='codex-lb')['key']
+            by_kind = {}
+            for ts, minutes, used, reset in points:
+                kind = 'weekly' if minutes and minutes >= 9000 else 'five_hour' if minutes and 200 <= minutes <= 400 else None
+                if kind:
+                    by_kind.setdefault(kind, []).append((ts, float(used), reset))
+            for kind, rows in by_kind.items():
+                if self.stop.is_set():
+                    return
+                self.writer.import_points(key, kind, rows)
+
     def read_lb(self, at):
         document = loopback_json(8335, '/v1/accounts')
         values = {str(value['id']): value for group in document['keys'] for value in group.get('accounts', [])}
@@ -1381,6 +1442,8 @@ class QuotaPoller:
         if self.stop.is_set():
             return
         self.attempt('', 'lb-status', 'codex-lb', 120, clock, lambda: self.read_lb(at))
+        if self.lb is not None and not self.stop.is_set():
+            self.attempt('', 'lb-history', 'codex-lb', 3600, clock, lambda: self.read_lb_history(at))
         for key in list(getattr(self, 'active', ())):
             if self.stop.is_set():
                 break
@@ -1702,7 +1765,8 @@ def main():
         pricing = Pricing(json.load(source))
     store = Store(state / 'usage.db', pricing)
     collector = Collector(store, LBReader('/var/lib/intent-lb/codex/store.db'), Gateway(credential))
-    quotas = QuotaPoller(store, Gateway(credential, collector.gateway.auth), collector.stop)
+    quotas = QuotaPoller(store, Gateway(credential, collector.gateway.auth), collector.stop,
+                         lb=LBReader('/var/lib/intent-lb/codex/store.db'))
     server = Server((HOST, PORT), Handler)
     server.store = store
     # serve_forever runs on main; shutdown must be invoked from another thread.
