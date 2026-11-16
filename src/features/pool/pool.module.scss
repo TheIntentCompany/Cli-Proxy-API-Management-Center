@@ -1,7 +1,7 @@
 @use '../../styles/mixins' as *;
 
-/* Pool cards after T3 Code's pooled limits (MIT): a big pooled figure, the chart, then
-   plain-labelled facts. */
+/* Pool cards after T3 Code's pooled limits (MIT): what's left in accounts, a status
+   sentence, the chart, then every account's state in words. */
 
 .page {
   container: pool / inline-size;
@@ -112,6 +112,16 @@
   color: var(--t3-muted-foreground);
 }
 
+.status {
+  margin: 0;
+  font-size: $text-sm;
+  color: var(--t3-foreground);
+}
+
+.statusHeld {
+  color: var(--t3-warning-foreground);
+}
+
 .explain {
   margin: 0;
   font-size: $text-xs;
@@ -191,81 +201,47 @@
   }
 }
 
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 20px;
+.caption {
+  margin: 0;
   font-size: $text-xs;
   color: var(--t3-muted-foreground);
-
-  > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-}
-
-.legendSolid {
-  width: 16px;
-  height: 2px;
-  border-radius: 2px;
-}
-
-.legendDashed {
-  width: 16px;
-  height: 0;
-  border-top: 2px dashed;
-}
-
-.facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px 24px;
-  margin: 6px 0 0;
-  padding-top: 14px;
-  border-top: 1px solid var(--t3-border);
-
-  > div {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  dt {
-    font-size: $text-xs;
-    color: var(--t3-muted-foreground);
-  }
-
-  dd {
-    margin: 0;
-    font-size: $text-sm;
-    color: var(--t3-foreground);
-    font-variant-numeric: tabular-nums;
-  }
-}
-
-.hint {
-  font-size: $text-2xs !important;
-  line-height: 1.45;
-  color: var(--t3-subtle-foreground) !important;
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  margin: 0;
-  padding: 0;
+  margin: 4px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--t3-border);
   list-style: none;
 
   li {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 10px;
-    padding: 3px 0;
+    grid-template-columns: 36px minmax(0, 1fr) auto minmax(0, auto);
+    align-items: center;
+    gap: 12px;
+    padding: 5px 0;
     font-size: $text-xs;
   }
+}
+
+/* What's left in this account's window, so the list reads at a glance. */
+.meter {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--t3-border);
+
+  > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--t3-muted-foreground);
+  }
+}
+
+.lineHeld .meter > span {
+  background: var(--t3-warning-foreground);
 }
 
 .listName {
@@ -274,10 +250,26 @@
   color: var(--t3-foreground);
 }
 
-.muted {
+.state {
+  color: var(--t3-foreground);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.stateHeld {
+  color: var(--t3-warning-foreground);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.banked {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--t3-border);
+  font-size: $text-xs;
   color: var(--t3-muted-foreground);
 }
 
-.warning {
-  color: var(--t3-warning-foreground);
+.muted {
+  color: var(--t3-muted-foreground);
 }

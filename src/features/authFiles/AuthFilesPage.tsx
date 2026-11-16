@@ -41,7 +41,8 @@ import { totalTokens, type UsageGroup } from '@/services/api/usage';
 import { formatCount, formatTokens, formatUsd } from '@/features/usage/format';
 import { useUsageSummary } from '@/features/usage/hooks';
 import { usePool } from '@/features/pool/usePool';
-import { poolNow } from '@/features/pool/model';
+import { memberStatuses, poolNow } from '@/features/pool/model';
+import { formatAccounts, weightNoteText } from '@/features/pool/format';
 import type { LiveLimits } from '@/features/quota/components/QuotaRow';
 import type { PoolAccount } from '@/services/api/usage';
 import { RangePicker } from '@/features/usage/RangePicker';
@@ -107,7 +108,7 @@ const normalizePersistedStatusFilterMode = (value: unknown): AuthFilesStatusFilt
 };
 
 export function AuthFilesPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Codex accounts reached through codex-lb: listed read-only below the credentials.
   const { status: codexLbStatus, refresh: refreshCodexLb } = useCodexLbStatus();
   const codexLbAccounts = useMemo(
@@ -637,7 +638,11 @@ export function AuthFilesPage() {
   const poolSummary = useMemo(() => {
     if (!poolState || poolState.accounts.length === 0) return null;
     return (['claude', 'codex'] as const)
-      .map((provider) => ({ provider, pool: poolNow(poolState.accounts, provider, 'weekly', now) }))
+      .map((provider) => {
+        const pool = poolNow(poolState.accounts, provider, 'weekly', now);
+        const open = memberStatuses(pool, now).filter((status) => status.state === 'open').length;
+        return { provider, pool, open };
+      })
       .filter((entry) => entry.pool.members.length > 0);
   }, [poolState, now]);
 
@@ -821,13 +826,19 @@ export function AuthFilesPage() {
         {poolSummary && poolSummary.length > 0 && (
           <button type="button" className={styles.poolStrip} onClick={() => navigate('/pool')}>
             <span className={styles.poolStripLabel}>{t('pool.strip_label')}</span>
-            {poolSummary.map(({ provider, pool }) => (
+            {poolSummary.map(({ provider, pool, open }) => (
               <span key={provider} className={styles.poolStripItem}>
                 <strong>{provider === 'claude' ? 'Claude' : 'Codex'}</strong>{' '}
                 {t('pool.strip_value', {
-                  remaining: Math.round(pool.remaining),
-                  capacity: Math.round(pool.capacity),
-                })}
+                  count: pool.capacity / 100,
+                  left: formatAccounts(pool.remaining, i18n.resolvedLanguage),
+                  capacity: formatAccounts(pool.capacity, i18n.resolvedLanguage),
+                })}{' '}
+                {weightNoteText(t, provider, pool)}
+                <span className={open < pool.members.length ? styles.poolStripHeld : undefined}>
+                  {' · '}
+                  {t('pool.taking', { open, count: pool.members.length })}
+                </span>
               </span>
             ))}
             <span className={styles.poolStripLink}>{t('pool.strip_link')}</span>

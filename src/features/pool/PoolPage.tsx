@@ -1,29 +1,29 @@
 /**
- * Pool: every account's limits added together, per provider. Six Claude accounts with
- * nothing used show 600%. Each card answers how much room is left, how fast it is going,
- * when it runs out, what the next resets bring back, which accounts are limited now and
- * how many banked resets are on hand. Readings come from the usage collector, which reads
- * every account every few minutes, so nothing here needs a click to stay current.
+ * Pool: how much use is left across all accounts, counted in accounts. Six untouched
+ * Claude accounts are "6 accounts' worth"; a Codex Pro 500 counts as 2.5 Pro 200s. Each
+ * card says what is left, how many accounts take requests now and how long it lasts at
+ * today's pace, then shows the history and projection, then every account's state in
+ * words. Readings come from the usage collector, which reads every account every few
+ * minutes, so nothing here needs a click to stay current.
  */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge, ErrorNotice, MiddleTruncate } from '@/components/ui/t3';
+import { ErrorNotice, MiddleTruncate } from '@/components/ui/t3';
 import { useNow } from '@/hooks/useNow';
 import type { PoolAccount, PoolState, PoolWindowKind } from '@/services/api/usage';
-import { codexPlanLabel } from '@/features/quota/providers/codex/planLabel';
 import { formatRelative, formatShortDateTime } from '@/utils/relativeTime';
 import iconClaude from '@/assets/icons/claude.svg';
 import iconCodex from '@/assets/icons/codex.svg';
 import {
   bankedResets,
   burnPerHour,
-  limitedAccounts,
+  memberStatuses,
   poolNow,
   project,
   recordedSeries,
-  upcomingResets,
-  weightNotes,
+  type MemberStatus,
 } from './model';
+import { formatAccounts, formatDayTime, poolPlanLabel, weightNoteText } from './format';
 import { PoolChart } from './PoolChart';
 import { usePool } from './usePool';
 import styles from './pool.module.scss';
@@ -90,10 +90,6 @@ function PoolCard({
     () => poolNow(state.accounts, provider, kind, now),
     [state, provider, kind, now]
   );
-  const session = useMemo(
-    () => poolNow(state.accounts, provider, 'five_hour', now),
-    [state, provider, now]
-  );
   const recorded = useMemo(
     () => recordedSeries(pool, state.history, now - PAST, now),
     [pool, state.history, now]
@@ -105,23 +101,25 @@ function PoolCard({
   );
   if (pool.members.length === 0) return null;
 
-  const limited = limitedAccounts(state.accounts, provider, now);
-  // A reset that brings nothing back (an untouched account) is not worth a line.
-  const resets = upcomingResets(pool)
-    .filter((reset) => reset.restores >= 0.5)
-    .slice(0, 5);
-  const banked = bankedResets(state.accounts, provider);
-  const notes = weightNotes(pool);
+  const statuses = memberStatuses(pool, now);
+  const open = statuses.filter((status) => status.state === 'open').length;
+  const banked = kind === 'fable' ? null : bankedResets(state.accounts, provider);
   const newest = Math.max(0, ...pool.members.map((member) => member.account.observedAtMs ?? 0));
   const oldest = Math.min(...pool.members.map((member) => member.account.observedAtMs ?? 0));
   const staleCount = pool.members.filter((member) => member.account.stale).length;
-  const when = (ms: number) =>
-    `${formatRelative(ms, now, locale)} · ${formatShortDateTime(ms, locale)}`;
-  const name = (account: PoolAccount) => account.label ?? account.fileName ?? account.key;
   const title =
     kind === 'fable' ? t('pool.card_fable') : provider === 'claude' ? 'Claude' : 'Codex';
-  const planLabel = (plan: string) =>
-    provider === 'codex' ? (codexPlanLabel(t, plan) ?? plan) : plan;
+  const accounts = (value: number) => formatAccounts(value, locale);
+  const spending = rate !== null && rate >= 0.05;
+
+  const lasts =
+    rate === null
+      ? t('pool.pace_unknown')
+      : !spending
+        ? t('pool.not_spending')
+        : projection?.runsOutAt
+          ? t('pool.lasts_until', { when: formatDayTime(projection.runsOutAt, locale) })
+          : t('pool.lasts_past', { when: formatDayTime(now + AHEAD, locale) });
 
   return (
     <section className={`${styles.card} ${compact ? styles.cardCompact : ''}`}>
@@ -138,25 +136,32 @@ function PoolCard({
       </header>
 
       <div className={styles.headline}>
-        <span className={styles.big}>{Math.round(pool.remaining)}%</span>
+        <span className={styles.big}>{accounts(pool.remaining)}</span>
         <span className={styles.of}>
-          {t(kind === 'fable' ? 'pool.of_fable' : 'pool.of_weekly', {
-            capacity: Math.round(pool.capacity),
+          {t(kind === 'fable' ? 'pool.left_fable' : 'pool.left_weekly', {
+            count: pool.capacity / 100,
+            capacity: accounts(pool.capacity),
+          })}{' '}
+          {weightNoteText(t, provider, pool)}
+        </span>
+      </div>
+      <p className={styles.status}>
+        <span className={open < pool.members.length ? styles.statusHeld : undefined}>
+          {t(kind === 'fable' ? 'pool.fable_open' : 'pool.taking', {
+            open,
+            count: pool.members.length,
           })}
         </span>
-        {notes.map((note) => (
-          <Badge key={note.plan} variant="outline">
-            {t('pool.weight_note', { plan: planLabel(note.plan), weight: note.weight })}
-          </Badge>
-        ))}
-      </div>
-      <p className={styles.explain}>
-        {pool.weighted
-          ? provider === 'claude'
-            ? t('pool.explain_claude')
-            : t('pool.explain_codex')
-          : t('pool.explain_unweighted')}
+        <span aria-hidden="true"> · </span>
+        <span>{lasts}</span>
       </p>
+      {(spending || !pool.weighted) && (
+        <p className={styles.explain}>
+          {!pool.weighted && t('pool.explain_unweighted')}
+          {!pool.weighted && spending && ' '}
+          {spending && t('pool.pace', { rate: accounts((rate as number) * 24) })}
+        </p>
+      )}
 
       <PoolChart
         recorded={recorded}
@@ -167,120 +172,118 @@ function PoolCard({
         to={now + AHEAD}
         now={now}
         color={COLORS[provider]}
-        height={compact ? 200 : 260}
+        height={compact ? 200 : 240}
         locale={locale}
         nowLabel={t('pool.now')}
         ariaLabel={t('pool.chart_label', { name: title })}
+        formatAccounts={accounts}
+        describe={(value) => t('pool.chart_value', { value: accounts(value) })}
       />
-      <div className={styles.legend}>
-        <span>
-          <i className={styles.legendSolid} style={{ background: COLORS[provider] }} />
-          {t('pool.recorded')}
-        </span>
-        <span>
-          <i className={styles.legendDashed} style={{ borderColor: COLORS[provider] }} />
-          {t('pool.projected')}
-        </span>
-        {recorded.length === 0 && <span className={styles.muted}>{t('pool.no_history')}</span>}
-      </div>
-
-      <dl className={styles.facts}>
-        <div>
-          <dt>{t('pool.runs_out')}</dt>
-          <dd>
-            {rate === null
-              ? t('pool.rate_unknown')
-              : rate < 0.05
-                ? t('pool.not_spending')
-                : projection?.runsOutAt
-                  ? when(projection.runsOutAt)
-                  : t('pool.lasts', { days: AHEAD / DAY })}
-          </dd>
-          <dd className={styles.hint}>
-            {rate !== null && rate >= 0.05
-              ? t('pool.burn', { rate: Math.round(rate * 24) })
-              : t('pool.burn_hint')}
-          </dd>
-        </div>
-
-        <div>
-          <dt>{t('pool.next_resets')}</dt>
-          {resets.length === 0 ? (
-            <dd className={styles.muted}>{t('pool.no_resets')}</dd>
-          ) : (
-            <dd>
-              <ul className={styles.list}>
-                {resets.map((reset) => (
-                  <li key={reset.member.account.key}>
-                    <MiddleTruncate
-                      className={styles.listName}
-                      value={name(reset.member.account)}
-                    />
-                    <span className={styles.muted}>{formatRelative(reset.at, now, locale)}</span>
-                    <span>+{Math.round(reset.restores)}%</span>
-                  </li>
-                ))}
-              </ul>
-            </dd>
-          )}
-        </div>
-
-        {kind !== 'fable' && (
-          <div>
-            <dt>{t('pool.limited_now')}</dt>
-            {limited.length === 0 ? (
-              <dd className={styles.muted}>{t('pool.none_limited')}</dd>
-            ) : (
-              <dd>
-                <ul className={styles.list}>
-                  {limited.map((entry) => (
-                    <li key={entry.account.key}>
-                      <MiddleTruncate className={styles.listName} value={name(entry.account)} />
-                      <span className={styles.warning}>
-                        {entry.reopensAtMs
-                          ? t('pool.reopens', {
-                              when: formatRelative(entry.reopensAtMs, now, locale),
-                            })
-                          : t('pool.limited')}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </dd>
-            )}
-            <dd className={styles.hint}>{t('pool.limited_hint')}</dd>
-          </div>
+      <p className={styles.caption}>
+        {recorded.length === 0
+          ? t('pool.no_history')
+          : rate === null
+            ? t('pool.caption_resets_only')
+            : t('pool.caption')}
+        {recorded.length > 0 && recorded[0].t > now - PAST + HOUR && (
+          <> {t('pool.history_starts', { when: formatDayTime(recorded[0].t, locale) })}</>
         )}
+      </p>
 
-        {kind !== 'fable' && session.members.length > 0 && (
-          <div>
-            <dt>{t('pool.five_hour')}</dt>
-            <dd>
-              {t('pool.five_hour_value', {
-                remaining: Math.round(session.remaining),
-                capacity: Math.round(session.capacity),
-              })}
-            </dd>
-            <dd className={styles.hint}>{t('pool.five_hour_hint')}</dd>
-          </div>
-        )}
+      <ul className={styles.list}>
+        {statuses.map((status) => (
+          <AccountLine
+            key={status.member.account.key}
+            status={status}
+            provider={provider}
+            kind={kind}
+            now={now}
+            showWeight={pool.weighted && pool.members.some((member) => member.weight !== 1)}
+          />
+        ))}
+      </ul>
 
-        {kind !== 'fable' && (
-          <div>
-            <dt>{t('pool.banked')}</dt>
-            <dd>
-              {banked.available === null
-                ? t('pool.banked_unknown')
-                : t('pool.banked_value', { count: banked.available })}
-            </dd>
-            <dd className={styles.hint}>
-              {banked.soonestExpiryMs
-                ? t('pool.banked_expiry', { when: when(banked.soonestExpiryMs) })
-                : t('pool.banked_hint')}
-            </dd>
-          </div>
-        )}
-      </dl>
+      {banked && banked.available !== null && (
+        <p className={styles.banked}>
+          {banked.available === 0
+            ? t('pool.banked_none')
+            : banked.soonestExpiryMs
+              ? t('pool.banked', {
+                  count: banked.available,
+                  when: formatRelative(banked.soonestExpiryMs, now, locale),
+                })
+              : t('pool.banked_no_expiry', { count: banked.available })}
+        </p>
+      )}
     </section>
+  );
+}
+
+/** One account in a pool card: name, plan weight where it matters, and its state in words. */
+function AccountLine({
+  status,
+  provider,
+  kind,
+  now,
+  showWeight,
+}: {
+  status: MemberStatus;
+  provider: 'claude' | 'codex';
+  kind: PoolWindowKind;
+  now: number;
+  showWeight: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage;
+  const { member } = status;
+  const name = (account: PoolAccount) => account.label ?? account.fileName ?? account.key;
+  const when = (ms: number) => formatRelative(ms, now, locale);
+  const used = Math.round(member.usedPercent ?? 0);
+  const left = Math.max(0, Math.min(100, 100 - used));
+
+  let text: string;
+  if (status.state === 'capped') {
+    text = status.backAtMs
+      ? t(kind === 'fable' ? 'pool.state_capped_fable' : 'pool.state_capped', {
+          when: when(status.backAtMs),
+        })
+      : t('pool.state_capped_unknown');
+  } else if (status.state === 'held') {
+    text = status.backAtMs
+      ? t(`pool.state_held_${status.heldBy}`, { when: when(status.backAtMs) })
+      : t('pool.state_held_unknown');
+  } else if (member.resetsAtMs === null) {
+    text = t('pool.state_no_reset', { used });
+  } else {
+    text = t(used === 0 ? 'pool.state_unused' : 'pool.state_used', {
+      used,
+      when: when(member.resetsAtMs),
+    });
+  }
+  const exact = status.backAtMs ?? member.resetsAtMs;
+
+  return (
+    <li className={status.state === 'open' ? undefined : styles.lineHeld}>
+      <span className={styles.meter} aria-hidden="true">
+        <span style={{ width: `${left}%` }} />
+      </span>
+      <MiddleTruncate className={styles.listName} value={name(member.account)} />
+      {showWeight && member.account.plan ? (
+        <span className={styles.muted}>
+          {t('pool.plan_weight', {
+            plan: poolPlanLabel(t, provider, member.account.plan),
+            weight: member.weight,
+          })}
+        </span>
+      ) : (
+        <span />
+      )}
+      <span
+        className={status.state === 'open' ? styles.state : styles.stateHeld}
+        title={exact ? formatShortDateTime(exact, locale) : undefined}
+      >
+        {text}
+      </span>
+    </li>
   );
 }

@@ -2,6 +2,8 @@
  * Pool capacity over time: the recorded line (solid, filled) up to now, then a dashed
  * projection that falls at the current burn rate and jumps where an account resets.
  * Each jump is labelled with what it brings back, like T3 Code's pooled limits chart.
+ * Values arrive in pool percent (100 per account); the axis, labels and tooltip show
+ * accounts' worth, so a Pro 500 plus a Pro 200 reads 0 to 3.5 rather than 0 to 350%.
  */
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { PoolPoint, ProjectedJump } from './model';
@@ -10,7 +12,17 @@ import styles from './pool.module.scss';
 const MARGIN = { top: 26, right: 16, bottom: 28, left: 48 };
 const DAY = 86_400_000;
 
-const formatPercent = (value: number) => `${Math.round(value)}%`;
+/** Gridlines at whole accounts, thinned so at most five labels show, plus the full pool. */
+function accountTicks(capacity: number): number[] {
+  const whole = Math.floor(capacity / 100 + 1e-9);
+  const step = Math.max(1, Math.ceil(whole / 4));
+  const ticks: number[] = [];
+  for (let n = 0; n <= whole; n += step) ticks.push(n * 100);
+  const last = ticks[ticks.length - 1];
+  if (capacity - last >= 50) ticks.push(capacity);
+  else ticks[ticks.length - 1] = Math.max(last, capacity);
+  return ticks;
+}
 
 export function PoolChart({
   recorded,
@@ -25,6 +37,8 @@ export function PoolChart({
   locale,
   nowLabel,
   ariaLabel,
+  formatAccounts,
+  describe,
 }: {
   recorded: PoolPoint[];
   projected: PoolPoint[];
@@ -38,6 +52,10 @@ export function PoolChart({
   locale?: string;
   nowLabel: string;
   ariaLabel: string;
+  /** "2.5" for 250 pool percent. */
+  formatAccounts: (value: number) => string;
+  /** Tooltip text for a pool value, such as "2.5 accounts' worth left". */
+  describe: (value: number) => string;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -86,7 +104,7 @@ export function PoolChart({
   const recordedJumps = recorded.flatMap((point, index) => {
     if (index === 0) return [];
     const gain = point.value - recorded[index - 1].value;
-    return gain >= 2 ? [{ t: point.t, top: point.value, gain }] : [];
+    return gain >= 5 ? [{ t: point.t, top: point.value, gain }] : [];
   });
   const projectedJumps = jumps.map((jump) => {
     const after = projected.find(
@@ -142,7 +160,7 @@ export function PoolChart({
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
-          {[0, top / 2, top].map((tick) => (
+          {accountTicks(capacity).map((tick) => (
             <g key={tick}>
               <line
                 x1={MARGIN.left}
@@ -158,7 +176,7 @@ export function PoolChart({
                 textAnchor="end"
                 className={styles.axis}
               >
-                {formatPercent(tick)}
+                {formatAccounts(tick)}
               </text>
             </g>
           ))}
@@ -208,7 +226,7 @@ export function PoolChart({
               textAnchor="middle"
               className={styles.jumpLabel}
             >
-              +{formatPercent(label.gain)}
+              +{formatAccounts(label.gain)}
             </text>
           ))}
           {hovered && (
@@ -241,7 +259,7 @@ export function PoolChart({
               minute: '2-digit',
             })}
           </div>
-          <strong>{formatPercent(hovered.value)}</strong>
+          <strong>{describe(hovered.value)}</strong>
         </div>
       )}
     </div>

@@ -188,12 +188,18 @@ export function recordedSeries(
   return series;
 }
 
-/** Pool percent spent per hour over the last `lookbackMs`, ignoring reset jumps. */
+/** Readings a pace needs to cover before it is worth carrying forward. */
+export const MIN_PACE_SPAN = 6 * HOUR;
+
+/**
+ * Pool percent spent per hour over the last `lookbackMs`, ignoring reset jumps. Null until
+ * the readings cover `MIN_PACE_SPAN`, so an hour of history doesn't set a week's forecast.
+ */
 export function burnPerHour(series: PoolPoint[], now: number, lookbackMs = DAY): number | null {
   const recent = series.filter((point) => point.t >= now - lookbackMs);
   if (recent.length < 2) return null;
   const span = recent[recent.length - 1].t - recent[0].t;
-  if (span < HOUR) return null;
+  if (span < MIN_PACE_SPAN) return null;
   let spent = 0;
   for (let index = 1; index < recent.length; index += 1) {
     const drop = recent[index - 1].value - recent[index].value;
@@ -277,40 +283,67 @@ export function project(
   return { points, jumps, runsOutAt };
 }
 
-/** Upcoming resets in time order, with the pool percent each brings back right now. */
-export function upcomingResets(pool: PoolNow) {
-  return pool.members
-    .filter((member) => member.resetsAtMs !== null)
-    .map((member) => ({
-      member,
-      at: member.resetsAtMs as number,
-      restores: member.capacity - member.remaining,
-    }))
-    .sort((a, b) => a.at - b.at);
+export type MemberState =
+  /** This window is used up; `backAtMs` is when it (and any lock) clears. */
+  | 'capped'
+  /** This window has room, but another limit (the 5-hour window, the weekly limit for
+   *  Fable, or a provider lock) stops the account until `backAtMs`. */
+  | 'held'
+  | 'open';
+
+export interface MemberStatus {
+  member: PoolMember;
+  state: MemberState;
+  /** Which other limit holds the account, for a 'held' state. */
+  heldBy: 'five_hour' | 'weekly' | 'lock' | null;
+  backAtMs: number | null;
 }
 
-/** Accounts that cannot serve now, and when they reopen. */
-export function limitedAccounts(
-  accounts: PoolAccount[],
-  provider: 'claude' | 'codex',
-  now: number
-) {
-  return accounts
-    .filter((account) => account.provider === provider)
-    .flatMap((account) => {
-      const spent = account.windows
-        .filter((window) => usedAt(window.usedPercent, window.resetsAtMs, now) >= 100)
-        .filter((window) => window.kind === 'weekly' || window.kind === 'five_hour');
-      const lockedUntil =
-        account.limitedUntilMs !== null && account.limitedUntilMs > now
-          ? account.limitedUntilMs
-          : null;
-      if (spent.length === 0 && lockedUntil === null) return [];
-      // It reopens when every spent window has reset, or when the lock ends.
-      const reopen = Math.max(lockedUntil ?? 0, ...spent.map((window) => window.resetsAtMs ?? 0));
-      return [{ account, reopensAtMs: reopen > now ? reopen : null, windows: spent }];
-    })
-    .sort((a, b) => (a.reopensAtMs ?? Infinity) - (b.reopensAtMs ?? Infinity));
+/**
+ * Each pool member's state in plain terms: can it take requests now, and if not, when it
+ * comes back. Capped accounts come first (soonest back first), then the rest by reset.
+ */
+export function memberStatuses(pool: PoolNow, now: number): MemberStatus[] {
+  const statuses = pool.members.map((member): MemberStatus => {
+    const { account } = member;
+    const lock =
+      account.limitedUntilMs !== null && account.limitedUntilMs > now
+        ? account.limitedUntilMs
+        : null;
+    const spent = (kind: PoolWindowKind) => {
+      const window = windowOf(account, kind);
+      return window && usedAt(window.usedPercent, window.resetsAtMs, now) >= 100 ? window : null;
+    };
+    const later = (...times: Array<number | null>) => {
+      const known = times.filter((time): time is number => time !== null && time > now);
+      return known.length > 0 ? Math.max(...known) : null;
+    };
+    if ((member.usedPercent ?? 0) >= 100) {
+      return { member, state: 'capped', heldBy: null, backAtMs: later(member.resetsAtMs, lock) };
+    }
+    const weekly = pool.kind === 'fable' ? spent('weekly') : null;
+    if (weekly) {
+      return { member, state: 'held', heldBy: 'weekly', backAtMs: later(weekly.resetsAtMs, lock) };
+    }
+    const session = pool.kind !== 'five_hour' ? spent('five_hour') : null;
+    if (session) {
+      return {
+        member,
+        state: 'held',
+        heldBy: 'five_hour',
+        backAtMs: later(session.resetsAtMs, lock),
+      };
+    }
+    if (lock !== null) return { member, state: 'held', heldBy: 'lock', backAtMs: lock };
+    return { member, state: 'open', heldBy: null, backAtMs: null };
+  });
+  const rank = (status: MemberStatus) => (status.state === 'open' ? 1 : 0);
+  return statuses.sort(
+    (a, b) =>
+      rank(a) - rank(b) ||
+      (a.backAtMs ?? a.member.resetsAtMs ?? Infinity) -
+        (b.backAtMs ?? b.member.resetsAtMs ?? Infinity)
+  );
 }
 
 export function bankedResets(accounts: PoolAccount[], provider: 'claude' | 'codex') {
@@ -329,7 +362,7 @@ export function bankedResets(accounts: PoolAccount[], provider: 'claude' | 'code
   return { available: known ? available : null, soonestExpiryMs: soonest };
 }
 
-/** Labels like "Pro 500 = 2.5x" for the weights that differ from 1. */
+/** Plans whose weight differs from 1, for "Pro 500 counts 2.5x". */
 export function weightNotes(pool: PoolNow): Array<{ plan: string; weight: number }> {
   if (!pool.weighted) return [];
   const seen = new Map<string, number>();

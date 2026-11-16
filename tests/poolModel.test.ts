@@ -3,11 +3,10 @@ import type { PoolAccount } from '@/services/api/usage';
 import {
   bankedResets,
   burnPerHour,
-  limitedAccounts,
+  memberStatuses,
   poolNow,
   project,
   recordedSeries,
-  upcomingResets,
 } from '@/features/pool/model';
 
 const HOUR = 3_600_000;
@@ -141,46 +140,65 @@ describe('projection', () => {
     expect(result.runsOutAt).not.toBeNull();
     expect(result.points.every((point) => point.value >= 0)).toBe(true);
   });
-
-  test('lists resets in order with what each brings back', () => {
-    const pool = poolNow(
-      [
-        account({ key: 'a', provider: 'claude', windows: [weekly(50, 10)] }),
-        account({ key: 'b', provider: 'claude', windows: [weekly(100, 5)] }),
-      ],
-      'claude',
-      'weekly',
-      NOW
-    );
-    expect(upcomingResets(pool).map((reset) => [reset.member.account.key, reset.restores])).toEqual(
-      [
-        ['b', 100],
-        ['a', 50],
-      ]
-    );
-  });
 });
 
-describe('limited accounts and banked resets', () => {
-  test('a spent weekly window or a lock makes an account limited until it reopens', () => {
-    const limited = limitedAccounts(
+describe('account states and banked resets', () => {
+  test('says which accounts are capped or held and when each comes back', () => {
+    const accounts = [
+      account({ key: 'open', provider: 'claude', windows: [weekly(15, 72)] }),
+      account({ key: 'capped', provider: 'claude', windows: [weekly(100, 20)] }),
+      account({
+        key: 'locked',
+        provider: 'claude',
+        windows: [weekly(10, 20)],
+        limitedUntilMs: NOW + 3 * HOUR,
+      }),
+      account({
+        key: 'session',
+        provider: 'claude',
+        windows: [
+          weekly(40, 50),
+          { kind: 'five_hour', usedPercent: 100, resetsAtMs: NOW + 2 * HOUR, windowMinutes: 300 },
+        ],
+      }),
+    ];
+    const statuses = memberStatuses(poolNow(accounts, 'claude', 'weekly', NOW), NOW);
+    expect(
+      statuses.map((status) => [
+        status.member.account.key,
+        status.state,
+        status.heldBy,
+        status.backAtMs,
+      ])
+    ).toEqual([
+      ['session', 'held', 'five_hour', NOW + 2 * HOUR],
+      ['locked', 'held', 'lock', NOW + 3 * HOUR],
+      ['capped', 'capped', null, NOW + 20 * HOUR],
+      ['open', 'open', null, null],
+    ]);
+  });
+
+  test('a spent weekly limit holds an account that still has Fable room', () => {
+    const fable = poolNow(
       [
-        account({ key: 'a', provider: 'claude', windows: [weekly(100, 20)] }),
         account({
-          key: 'b',
+          key: 'a',
           provider: 'claude',
-          windows: [weekly(10, 20)],
-          limitedUntilMs: NOW + 3 * HOUR,
+          windows: [
+            weekly(100, 5),
+            { kind: 'fable', usedPercent: 70, resetsAtMs: NOW + 5 * HOUR, windowMinutes: 10080 },
+          ],
         }),
-        account({ key: 'c', provider: 'claude', windows: [weekly(10, 20)] }),
       ],
       'claude',
+      'fable',
       NOW
     );
-    expect(limited.map((entry) => [entry.account.key, entry.reopensAtMs])).toEqual([
-      ['b', NOW + 3 * HOUR],
-      ['a', NOW + 20 * HOUR],
-    ]);
+    expect(memberStatuses(fable, NOW)[0]).toMatchObject({
+      state: 'held',
+      heldBy: 'weekly',
+      backAtMs: NOW + 5 * HOUR,
+    });
   });
 
   test('adds banked resets across the pool and keeps the soonest expiry', () => {
