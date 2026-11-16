@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import styles from './LimitMeter.module.scss';
 
-/** At or above this share of a limit, the meter adds a written warning. */
+/** At or above this share of a limit, the meter adds a written warning; at 100 it says capped. */
 export const LIMIT_WARNING_PERCENT = 90;
 
 interface LimitMeterProps {
@@ -13,14 +13,18 @@ interface LimitMeterProps {
   /** Right-hand detail, usually the reset time. */
   detail?: ReactNode;
   emptyText: string;
+  /** Shown from LIMIT_WARNING_PERCENT up to 99%, such as "near limit". */
   warningText: string;
+  /** Shown at 100%, such as "capped". */
+  cappedText: string;
   /** Keep the label for assistive tech only, when a column heading already names it. */
   labelHidden?: boolean;
 }
 
 /**
  * One limit window as a hairline track with a thin fill. Severity is written out
- * ("near limit") instead of being carried by color alone.
+ * ("near limit", then "capped" once the window is used up) instead of being carried by
+ * color alone.
  */
 export function LimitMeter({
   label,
@@ -29,10 +33,13 @@ export function LimitMeter({
   detail,
   emptyText,
   warningText,
+  cappedText,
   labelHidden = false,
 }: LimitMeterProps) {
   const known = usedPercent !== null && Number.isFinite(usedPercent);
   const value = known ? Math.min(100, Math.max(0, usedPercent as number)) : 0;
+  // Judged on the shown number, so a 99.6% reading never reads "100% near limit".
+  const capped = known && Math.round(value) >= 100;
   const warn = known && value >= LIMIT_WARNING_PERCENT;
   return (
     <div className={styles.meter}>
@@ -40,7 +47,7 @@ export function LimitMeter({
         <span className={labelHidden ? styles.srOnly : styles.label}>{label}</span>
         <span className={styles.value}>
           {known ? `${Math.round(value)}%` : <span className={styles.empty}>{emptyText}</span>}
-          {warn && <span className={styles.warn}>{warningText}</span>}
+          {warn && <span className={styles.warn}>{capped ? cappedText : warningText}</span>}
         </span>
       </div>
       <div

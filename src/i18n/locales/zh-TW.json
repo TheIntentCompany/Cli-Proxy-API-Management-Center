@@ -242,6 +242,7 @@
     "weekly": "每週",
     "not_reported": "未回報",
     "near_limit": "接近上限",
+    "capped": "已用盡",
     "no_model_limits": "無",
     "resets": "{{when}}重置 · {{date}}",
     "resets_short": "{{when}}重置",

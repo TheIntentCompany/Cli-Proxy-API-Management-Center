@@ -241,6 +241,7 @@
     "weekly": "Неделя",
     "not_reported": "нет данных",
     "near_limit": "близко к лимиту",
+    "capped": "лимит исчерпан",
     "no_model_limits": "нет",
     "resets": "сброс {{when}} · {{date}}",
     "resets_short": "сброс {{when}}",

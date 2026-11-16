@@ -242,6 +242,7 @@
     "weekly": "Weekly",
     "not_reported": "not reported",
     "near_limit": "near limit",
+    "capped": "capped",
     "no_model_limits": "none",
     "resets": "resets {{when}} · {{date}}",
     "resets_short": "resets {{when}}",

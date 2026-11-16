@@ -242,6 +242,7 @@
     "weekly": "Hằng tuần",
     "not_reported": "chưa báo",
     "near_limit": "gần chạm giới hạn",
+    "capped": "hết hạn mức",
     "no_model_limits": "không có",
     "resets": "đặt lại {{when}} · {{date}}",
     "resets_short": "đặt lại {{when}}",

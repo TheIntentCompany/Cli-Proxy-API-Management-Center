@@ -242,6 +242,7 @@
     "weekly": "Haftalık",
     "not_reported": "bildirilmedi",
     "near_limit": "limite yakın",
+    "capped": "limit doldu",
     "no_model_limits": "yok",
     "resets": "{{when}} sıfırlanır · {{date}}",
     "resets_short": "{{when}} sıfırlanır",

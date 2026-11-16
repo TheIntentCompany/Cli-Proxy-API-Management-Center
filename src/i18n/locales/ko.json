@@ -242,6 +242,7 @@
     "weekly": "주간",
     "not_reported": "보고 없음",
     "near_limit": "한도 임박",
+    "capped": "한도 소진",
     "no_model_limits": "없음",
     "resets": "{{when}} 초기화 · {{date}}",
     "resets_short": "{{when}} 초기화",

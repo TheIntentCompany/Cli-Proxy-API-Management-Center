@@ -167,6 +167,7 @@ export function CodexLbRow({
           detail={meterDetail(five)}
           emptyText={t('limits.not_reported')}
           warningText={t('limits.near_limit')}
+          cappedText={t('limits.capped')}
           labelHidden
         />
       </div>
@@ -178,6 +179,7 @@ export function CodexLbRow({
           detail={meterDetail(weekly)}
           emptyText={t('limits.not_reported')}
           warningText={t('limits.near_limit')}
+          cappedText={t('limits.capped')}
           labelHidden
         />
       </div>
@@ -190,6 +192,7 @@ export function CodexLbRow({
             detail={meterDetail(monthly)}
             emptyText={t('limits.not_reported')}
             warningText={t('limits.near_limit')}
+            cappedText={t('limits.capped')}
           />
         ) : (
           <span className={styles.none}>{t('limits.no_model_limits')}</span>

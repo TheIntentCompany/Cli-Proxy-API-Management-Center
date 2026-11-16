@@ -524,6 +524,7 @@ export function QuotaRow({
           detail={meterDetail(fiveHour)}
           emptyText={t('limits.not_reported')}
           warningText={t('limits.near_limit')}
+          cappedText={t('limits.capped')}
           labelHidden
         />
       </div>
@@ -535,6 +536,7 @@ export function QuotaRow({
           detail={meterDetail(weekly)}
           emptyText={t('limits.not_reported')}
           warningText={t('limits.near_limit')}
+          cappedText={t('limits.capped')}
           labelHidden
         />
       </div>
@@ -553,6 +555,7 @@ export function QuotaRow({
             }
             emptyText={t('limits.not_reported')}
             warningText={t('limits.near_limit')}
+            cappedText={t('limits.capped')}
           />
         ) : otherWindows.length === 0 ? (
           <span className={styles.none}>{hasReading ? t('limits.no_model_limits') : ''}</span>
@@ -572,6 +575,7 @@ export function QuotaRow({
               }
               emptyText={t('limits.not_reported')}
               warningText={t('limits.near_limit')}
+              cappedText={t('limits.capped')}
             />
           ))
         )}
